@@ -119,6 +119,7 @@
   <ItemGroup>
     <Compile Include="Audit.cs" />
     <Compile Include="BigInteger.cs" />
+    <Compile Include="CryptoV2.cs" />
     <Compile Include="DatabaseConfig.cs" />
     <Compile Include="DpiFix.cs" />
     <Compile Include="Extensions.cs" />
@@ -216,6 +217,7 @@
     <Compile Include="Models\DataExchange\ApplicationMetadata.cs" />
     <Compile Include="Models\DataExchange\AuthenticationResult.cs" />
     <Compile Include="Models\DataExchange\Configuration.cs" />
+    <Compile Include="Models\DataExchange\CryptoParams.cs" />
     <Compile Include="Models\DataExchange\Database.cs" />
     <Compile Include="Models\DataExchange\Utilities.cs" />
     <Compile Include="Models\DataExchange\Entry.cs" />
