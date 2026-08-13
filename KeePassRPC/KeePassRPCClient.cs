@@ -68,6 +68,10 @@ namespace KeePassRPC
             // Can send new DTO format
             "KPRPC_FEATURE_DTO_V2",
 
+            // Ephemeral per-session keys, HMAC-SHA256 and replay protection. Offered to
+            // everyone, used only by clients that declare it; see CryptoV2.
+            "KPRPC_FEATURE_CRYPTO_V2",
+
             // Pairing can run in the 2048-bit RFC 5054 group instead of upstream's 512-bit
             // one. Offered to everyone, used only by clients that declare it; see SrpGroup.
             SrpGroup.StrongGroupFeatureName
@@ -99,6 +103,12 @@ namespace KeePassRPC
         private int securityLevelClientMinimum;
         private string userName;
         private string[] _clientFeatures;
+
+        // Set once the newer session crypto has been negotiated and agreed. Null means the
+        // original suite, which is what every legacy client keeps using.
+        private byte[] _sessionKey;
+        private long _expectedClientSequence = 1;
+        private long _nextServerSequence = 1;
 
         // Read-only username is accessible to anyone but only once the connection has been confirmed
         public string UserName { get
@@ -435,6 +445,56 @@ See https://forum.kee.pm/t/3143/ for more information.",
 
         }
 
+        /// <summary>Whether this client asked for the newer session crypto.</summary>
+        private bool ClientWantsCryptoV2()
+        {
+            return _clientFeatures != null && Array.IndexOf(_clientFeatures, CryptoV2.FeatureName) >= 0;
+        }
+
+        /// <summary>
+        /// Complete the ephemeral key agreement, if the client offered one and asked for the
+        /// newer suite. Returns what to send back, or null to leave the reply unchanged.
+        ///
+        /// Authenticated by <paramref name="pairedKeyHex"/>: the session key is derived from
+        /// that as well as the agreed secret, so a party without it cannot reach the same key
+        /// and every subsequent message from it fails authentication.
+        /// </summary>
+        private CryptoParams NegotiateCryptoV2(CryptoParams offered, string pairedKeyHex)
+        {
+            if (offered == null || string.IsNullOrEmpty(offered.cpub) || !ClientWantsCryptoV2())
+                return null;
+
+            try
+            {
+                byte[] clientPublic = Convert.FromBase64String(offered.cpub);
+                using (CryptoV2.Exchange exchange = CryptoV2.BeginExchange())
+                {
+                    byte[] serverPublic = exchange.PublicKey;
+                    byte[] agreed = exchange.AgreeWith(clientPublic);
+                    byte[] pairedKey = MemUtil.HexStringToByteArray(pairedKeyHex);
+
+                    _sessionKey = CryptoV2.DeriveSessionKey(pairedKey, clientPublic, serverPublic, agreed);
+                    _expectedClientSequence = 1;
+                    _nextServerSequence = 1;
+
+                    CryptoParams reply = new CryptoParams();
+                    reply.spub = Convert.ToBase64String(serverPublic);
+                    reply.proof = Convert.ToBase64String(
+                        CryptoV2.KexConfirmation(_sessionKey, clientPublic, serverPublic));
+                    return reply;
+                }
+            }
+            catch (Exception ex)
+            {
+                // Fail back to nothing rather than to the older suite. A client that asked for
+                // the stronger one and did not get it must not be silently downgraded: it
+                // would carry on believing it had forward secrecy.
+                _sessionKey = null;
+                if (KPRPC.logger != null) KPRPC.logger.WriteLine("CryptoV2 key agreement failed: " + ex.Message);
+                throw new Exception("Key agreement failed");
+            }
+        }
+
         private bool ClientSupportsRequiredFeatures()
         {
             return _clientFeatures != null && !featuresRequired.Except(_clientFeatures).Any();
@@ -561,7 +621,24 @@ See https://forum.kee.pm/t/3143/ for more information.",
                     else if (!string.IsNullOrEmpty(kprpcm.key.cc) && !string.IsNullOrEmpty(kprpcm.key.cr))
                     {
                         bool authorised = false;
-                        WebSocketConnection.Send(Kcp.KeyChallengeResponse2(kprpcm.key.cc, kprpcm.key.cr, KeyContainer, securityLevel, out authorised));
+                        string kcrResponse = Kcp.KeyChallengeResponse2(kprpcm.key.cc, kprpcm.key.cr, KeyContainer, securityLevel, out authorised);
+
+                        // Same reasoning as the pairing path: the agreement travels with the
+                        // message that completes authentication. Only once the challenge has
+                        // actually succeeded, so an unauthenticated peer never gets a key.
+                        if (authorised)
+                        {
+                            CryptoParams agreed = NegotiateCryptoV2(kprpcm.crypto, KeyContainer.Key);
+                            if (agreed != null)
+                            {
+                                KPRPCMessage withCrypto =
+                                    (KPRPCMessage)JsonConvert.Import(typeof(KPRPCMessage), kcrResponse);
+                                withCrypto.crypto = agreed;
+                                kcrResponse = JsonConvert.ExportToString(withCrypto);
+                            }
+                        }
+
+                        WebSocketConnection.Send(kcrResponse);
                         Authorised = authorised;
                         if (authorised)
                         {
@@ -696,6 +773,10 @@ See https://forum.kee.pm/t/3143/ for more information.",
                     data2client.srp.M2 = _srp.M2;
                     data2client.srp.securityLevel = securityLevel;
                     KeyContainer = new KeyContainerClass(_srp.Key,DateTime.UtcNow.AddSeconds(KeyExpirySeconds),userName,clientName);
+                    // Rides on the message that completes pairing: the server refuses setup
+                    // messages once authorised, and before this point there is no shared key
+                    // to authenticate an exchange with.
+                    data2client.crypto = NegotiateCryptoV2(srpem.crypto, _srp.Key);
                     Authorised = true;
                     // We assume the user has checked the client name as part of the initial SRP setup so it's fairly safe to use it to determine the type of client connection to which we want to promote our null connection
                     KPRPC.PromoteGeneralRPCClient(this, clientName);
@@ -759,6 +840,24 @@ See https://forum.kee.pm/t/3143/ for more information.",
         {
             if (string.IsNullOrEmpty(plaintext))
                 return null;
+
+            // Negotiated suite: fresh per-session key, HMAC-SHA256, sequence numbered. The
+            // legacy path below is left exactly as it was, because every client that has not
+            // asked for the newer suite still depends on it byte for byte.
+            if (_sessionKey != null)
+            {
+                try
+                {
+                    JSONRPCContainer secured = CryptoV2.Encrypt(plaintext, _sessionKey, _nextServerSequence);
+                    _nextServerSequence++;
+                    return secured;
+                }
+                catch (Exception ex)
+                {
+                    if (KPRPC.logger != null) KPRPC.logger.WriteLine("CryptoV2 encrypt failed: " + ex.Message);
+                    return null;
+                }
+            }
 
             KeyContainerClass kc = KeyContainer;
 
@@ -867,6 +966,24 @@ See https://forum.kee.pm/t/3143/ for more information.",
 
         public string Decrypt(JSONRPCContainer jsonrpcEncrypted)
         {
+            // See Encrypt: the newer suite when negotiated, the original one otherwise.
+            if (_sessionKey != null)
+            {
+                try
+                {
+                    string plain = CryptoV2.Decrypt(jsonrpcEncrypted, _sessionKey, _expectedClientSequence);
+                    _expectedClientSequence++;
+                    return plain;
+                }
+                catch (Exception ex)
+                {
+                    // A failure here is a forged, replayed or reordered message. Returning
+                    // null is how this method already reports "do not act on this".
+                    if (KPRPC.logger != null) KPRPC.logger.WriteLine("CryptoV2 decrypt refused: " + ex.Message);
+                    return null;
+                }
+            }
+
             if (string.IsNullOrEmpty(jsonrpcEncrypted.message)
                 || string.IsNullOrEmpty(jsonrpcEncrypted.iv)
                 || string.IsNullOrEmpty(jsonrpcEncrypted.hmac))
