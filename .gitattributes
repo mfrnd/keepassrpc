@@ -1,6 +1,11 @@
 # Auto detect text files and perform LF normalization
 * text=auto
 
+# The Python client is checked by ruff on both Windows and Linux runners. Pin it to LF
+# so the formatter sees the same bytes on each, rather than whatever the platform's
+# checkout produced. Scoped to this fork's own tree; upstream's files keep `text=auto`.
+clients/python/** text eol=lf
+
 # Custom for Visual Studio
 *.cs     diff=csharp
 *.sln    merge=union

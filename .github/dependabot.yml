@@ -1,0 +1,28 @@
+# Dependency updates.
+#
+# Scoped to what this fork actually owns: the Python client and the workflows added with
+# it. The C# side vendors its dependencies as committed DLLs and tracks upstream, so
+# Dependabot has nothing useful to say about it and a NuGet ecosystem entry would only
+# generate noise against code the fork does not maintain.
+version: 2
+
+updates:
+  - package-ecosystem: uv
+    directory: /clients/python
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # One PR for the dev toolchain: these move together and are not shipped to users.
+      dev-tooling:
+        dependency-type: development
+    commit-message:
+      prefix: 'Update'
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: 'Update'
