@@ -157,6 +157,7 @@
     <Compile Include="AccessChoice.cs" />
     <Compile Include="MinimumKeePass.cs" />
     <Compile Include="LegacyClients.cs" />
+    <Compile Include="Forms\ClientAccessTable.cs" />
     <Compile Include="Acl\AclDefault.cs" />
     <Compile Include="Acl\AclProfiles.cs" />
     <Compile Include="Acl\AclVerbView.cs" />
@@ -164,6 +165,12 @@
     <Compile Include="Forms\DismissalRevert.cs" />
     <Compile Include="Forms\RestingScrollBar.cs" />
     <Compile Include="Forms\Tooltips.cs" />
+    <Compile Include="Forms\NewClientForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\NewClientForm.Designer.cs">
+      <DependentUpon>NewClientForm.cs</DependentUpon>
+    </Compile>
     <Compile Include="Forms\KeeFieldForm.cs">
       <SubType>Form</SubType>
     </Compile>

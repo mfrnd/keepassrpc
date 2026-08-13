@@ -84,7 +84,7 @@ namespace KeePassRPC.Forms
             // checkBox1
             // 
             this.checkBox1.AutoSize = true;
-            this.checkBox1.Location = new System.Drawing.Point(6, 29);
+            this.checkBox1.Location = new System.Drawing.Point(6, 52);
             this.checkBox1.Name = "checkBox1";
             this.checkBox1.Size = new System.Drawing.Size(80, 17);
             this.checkBox1.TabIndex = 1;
@@ -145,7 +145,7 @@ namespace KeePassRPC.Forms
             // checkBox2
             // 
             this.checkBox2.AutoSize = true;
-            this.checkBox2.Location = new System.Drawing.Point(6, 6);
+            this.checkBox2.Location = new System.Drawing.Point(6, 29);
             this.checkBox2.Name = "checkBox2";
             this.checkBox2.Size = new System.Drawing.Size(80, 17);
             this.checkBox2.TabIndex = 0;
@@ -181,7 +181,7 @@ namespace KeePassRPC.Forms
             // 
             // label13
             // 
-            this.label13.Location = new System.Drawing.Point(6, 59);
+            this.label13.Location = new System.Drawing.Point(6, 82);
             this.label13.Name = "label13";
             this.label13.Size = new System.Drawing.Size(460, 107);
             this.label13.TabIndex = 6;
@@ -190,7 +190,7 @@ namespace KeePassRPC.Forms
             // checkBox3
             // 
             this.checkBox3.AutoSize = true;
-            this.checkBox3.Location = new System.Drawing.Point(6, 169);
+            this.checkBox3.Location = new System.Drawing.Point(6, 6);
             this.checkBox3.Name = "checkBox3";
             this.checkBox3.Size = new System.Drawing.Size(80, 17);
             this.checkBox3.TabIndex = 4;
