@@ -26,6 +26,7 @@ using KeePassLib.Collections;
 using KeePassLib.Keys;
 using KeePassLib.Serialization;
 using KeePassLib.Utility;
+using KeePassRPC.Acl;
 using KeePassRPC.Forms;
 using KeePassRPC.Models.DataExchange;
 using KeePassRPC.Properties;
@@ -126,6 +127,18 @@ namespace KeePassRPC
                     return false;
                 _host = host;
 
+                // Installed as a plain DLL, KeePass performs no version check of its own, so
+                // an old KeePass would load this and then behave in ways the fork has never
+                // been run against. The packaged .plgx already refuses below this version.
+                if (!MinimumKeePass.SatisfiedHere)
+                {
+                    MessageBox.Show("KeePassRPC needs KeePass " + MinimumKeePass.RequiredText
+                        + " or newer. This KeePass is " + PwDefs.VersionString
+                        + ", so the plugin has not been loaded.",
+                        "KeePassRPC", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+
                 // Reduce Fleck library logging verbosity
                 FleckLog.Level = LogLevel.Error;
 
@@ -168,6 +181,14 @@ namespace KeePassRPC
                 TLDRulesCache.Init(host.CustomConfig.GetString(
                     "KeePassRPC.publicSuffixDomainCache.path",
                     GetLocalConfigLocation() + "publicSuffixDomainCache.txt"));
+
+                // Before any client can connect, give the ones that predate this build the
+                // access they used to have. Once only; see LegacyClients.
+                foreach (string migrated in LegacyClients.Migrate(host))
+                {
+                    if (logger != null)
+                        logger.WriteLine("Granted the previous legacy access to " + migrated);
+                }
 
                 // The Kee client manager holds objects relating to the web socket connections managed by the Fleck2 library
                 CreateClientManagers();

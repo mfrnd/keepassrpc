@@ -154,6 +154,9 @@
     <Compile Include="Forms\KeeEntryUserControl.Designer.cs">
       <DependentUpon>KeeEntryUserControl.cs</DependentUpon>
     </Compile>
+    <Compile Include="AccessChoice.cs" />
+    <Compile Include="MinimumKeePass.cs" />
+    <Compile Include="LegacyClients.cs" />
     <Compile Include="Acl\AclDefault.cs" />
     <Compile Include="Acl\AclProfiles.cs" />
     <Compile Include="Acl\AclVerbView.cs" />

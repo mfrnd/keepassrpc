@@ -882,6 +882,34 @@ See https://forum.kee.pm/t/3143/ for more information.",
                 _authForm.Hide();
         }
 
+        private delegate void ShowNewClientDelegate(string subject, string clientName);
+
+        /// <summary>
+        /// Offer the access decision that pairing does not make, for a client nobody has
+        /// decided about yet.
+        ///
+        /// Skipped for a subject that already holds a profile: re-pairing an existing client
+        /// is a re-key, not a new decision, and asking every time would train people to
+        /// dismiss the question. Nothing is written unless the dialog is accepted, so
+        /// dismissing it leaves the client refused, which is the state it was already in.
+        /// </summary>
+        private void ShowNewClientPrompt(string subject, string name)
+        {
+            if (KPRPC == null || KPRPC._host == null)
+                return;
+
+            if (!NewClientForm.NeedsDeciding(KPRPC._host, subject))
+                return;
+
+            using (NewClientForm form = new NewClientForm(subject, name))
+            {
+                if (form.ShowDialog(KPRPC._host.MainWindow) != DialogResult.OK)
+                    return;
+
+                NewClientForm.Apply(KPRPC._host, subject, form.Selected);
+            }
+        }
+
         public void ShuttingDown()
         {
             // Hide the auth dialog as long as we're not trying to shut down the main thread at the same time
@@ -935,6 +963,13 @@ See https://forum.kee.pm/t/3143/ for more information.",
                         KPRPC.InvokeMainThread(new KeePassRPCExt.WelcomeKeeUserDelegate(KPRPC.WelcomeKeeUser));
                     if (!welcomeDisplayed)
                         KPRPC._host.CustomConfig.SetBool("KeePassRPC.KeeFoxWelcomeDisplayed",true);
+
+                    // Pairing on its own grants nothing, because the method gate is default
+                    // deny, so ask now what this client may call. Now is the only moment a
+                    // human is certainly present: the pairing code is shown on this screen
+                    // and nobody could have got this far without reading it.
+                    KPRPC.InvokeMainThread(
+                        new ShowNewClientDelegate(ShowNewClientPrompt), userName, clientName);
                 }
             }
 
