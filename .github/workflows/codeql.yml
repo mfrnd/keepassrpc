@@ -1,0 +1,47 @@
+# Code scanning for the Python client.
+#
+# Python only, deliberately. CodeQL's C# analysis needs a working build, and this fork
+# builds against a KeePass.exe that only exists on a developer's workstation, so a csharp
+# job would fail for reasons that say nothing about the code. If the plugin build is ever
+# made self-contained, add csharp to the matrix then.
+name: codeql
+
+on:
+  push:
+    branches: [master, 'feature/**']
+    paths:
+      - 'clients/python/**'
+      - '.github/workflows/codeql.yml'
+  pull_request:
+    branches: [master]
+    paths:
+      - 'clients/python/**'
+      - '.github/workflows/codeql.yml'
+  schedule:
+    # Weekly, so newly published queries reach existing code rather than only new commits.
+    - cron: '17 4 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python
+          queries: security-and-quality
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:python

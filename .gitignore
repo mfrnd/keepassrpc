@@ -23,3 +23,17 @@ Jayrock.Json.csproj.FileListAbsolute.txt
 
 # Reference clones of related repos, fetched on demand. Never committed.
 .tmp/
+
+# Python client (clients/python). uv.lock IS committed, so that CI installs what was
+# tested locally; everything below is generated.
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+/clients/python/dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/

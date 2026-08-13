@@ -1,0 +1,47 @@
+# Pre-commit hooks.
+#
+# EVERY hook is scoped to clients/python and .github on purpose. This repository is a fork
+# of kee-org/keepassrpc and the C# is upstream's, untouched. A whitespace fixer or a
+# formatter let loose on those files would produce a diff that mixes a reformat with a
+# change, which is unreviewable and makes every future upstream merge worse. Keep new
+# tooling pointed only at code this fork actually owns.
+#
+#   uv tool install pre-commit && pre-commit install
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        files: ^(clients/python/|\.github/|\.pre-commit-config\.yaml)
+      - id: end-of-file-fixer
+        files: ^(clients/python/|\.github/|\.pre-commit-config\.yaml)
+      - id: check-yaml
+        files: ^(\.github/|\.pre-commit-config\.yaml)
+      - id: check-toml
+        files: ^clients/python/
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.0
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+        files: ^clients/python/
+      - id: ruff-format
+        files: ^clients/python/
+
+  - repo: local
+    hooks:
+      # mypy through uv rather than pre-commit's own environment: the client's types only
+      # check correctly against its pinned dependencies, and mirroring those into a second
+      # environment is a copy that goes stale.
+      - id: mypy
+        name: mypy (python client)
+        entry: uv run --project clients/python mypy
+        language: system
+        types: [python]
+        files: ^clients/python/
+        pass_filenames: false
