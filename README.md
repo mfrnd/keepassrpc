@@ -11,10 +11,27 @@
 > [`V3-DESIGN.md`](V3-DESIGN.md), what the controls are worth in
 > [`THREAT-MODEL.md`](THREAT-MODEL.md).
 >
-> Everything below this note is upstream's README, unchanged, including its download and install
-> instructions, which refer to the official plugin at
-> [kee-org/keepassrpc](https://github.com/kee-org/keepassrpc) rather than to this fork. There are no
-> releases here.
+> #### Installing this fork
+>
+> The plugin ships as `KeePassRPC.plgx`, the same filename upstream uses, so KeePass loads whichever
+> one is present. Install this fork **or** upstream's plugin, never both.
+>
+> With [Scoop](https://scoop.sh), this repository doubles as a bucket:
+>
+> ```powershell
+> scoop bucket add keepassrpc-v3 https://github.com/mfrnd/keepassrpc
+> scoop install keepassrpc-v3/keepass-plugin-keepassrpc-v3
+> ```
+>
+> That targets a Scoop-managed KeePass (it declares `extras/keepass` as a dependency) and copies the
+> plugin into its `Plugins` folder. For a KeePass installed any other way, download `KeePassRPC.plgx`
+> from the [releases page](https://github.com/mfrnd/keepassrpc/releases) and drop it into that
+> KeePass's `Plugins` folder by hand. Either way, restart KeePass afterwards so it compiles and loads
+> the plugin.
+>
+> Everything below this note is upstream's README, unchanged. Its own download and install
+> instructions refer to the official plugin at
+> [kee-org/keepassrpc](https://github.com/kee-org/keepassrpc), not to this fork.
 
 # Simple and secure password management
 
