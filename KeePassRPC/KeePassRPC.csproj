@@ -129,6 +129,7 @@
     <Compile Include="DatabaseConfig.cs" />
     <Compile Include="DpiFix.cs" />
     <Compile Include="Extensions.cs" />
+    <Compile Include="Forms\DialogGrowth.cs" />
     <Compile Include="Forms\AuthForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -150,6 +151,9 @@
     <Compile Include="Acl\AclDefault.cs" />
     <Compile Include="Acl\AclProfiles.cs" />
     <Compile Include="Acl\AclVerbView.cs" />
+    <Compile Include="Forms\DismissalRevert.cs" />
+    <Compile Include="Forms\RestingScrollBar.cs" />
+    <Compile Include="Forms\Tooltips.cs" />
     <Compile Include="Forms\KeeFieldForm.cs">
       <SubType>Form</SubType>
     </Compile>

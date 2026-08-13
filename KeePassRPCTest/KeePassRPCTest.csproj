@@ -51,6 +51,7 @@
     <Compile Include="EntryConfigConvert.cs" />
     <Compile Include="EntryConfigRoundtrip.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="RestingScrollBarTest.cs" />
     <Compile Include="RtfTextTest.cs" />
     <Compile Include="RemoteAccessTest.cs" />
     <Compile Include="SrpExchange.cs" />
