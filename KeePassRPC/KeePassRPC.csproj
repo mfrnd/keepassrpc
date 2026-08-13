@@ -130,6 +130,12 @@
     <Compile Include="DpiFix.cs" />
     <Compile Include="Extensions.cs" />
     <Compile Include="Forms\DialogGrowth.cs" />
+    <Compile Include="Forms\AclUserControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Forms\AclUserControl.Designer.cs">
+      <DependentUpon>AclUserControl.cs</DependentUpon>
+    </Compile>
     <Compile Include="Forms\AuthForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -151,6 +157,7 @@
     <Compile Include="Acl\AclDefault.cs" />
     <Compile Include="Acl\AclProfiles.cs" />
     <Compile Include="Acl\AclVerbView.cs" />
+    <Compile Include="Forms\AclDefaultUserControl.cs" />
     <Compile Include="Forms\DismissalRevert.cs" />
     <Compile Include="Forms\RestingScrollBar.cs" />
     <Compile Include="Forms\Tooltips.cs" />
@@ -284,6 +291,7 @@
     <Compile Include="RemoteAccess.cs" />
     <Compile Include="SrpGroup.cs" />
     <Compile Include="SRP.cs" />
+    <Compile Include="SubjectRegistry.cs" />
     <Compile Include="URLSummary.cs" />
     <Compile Include="Utils.cs" />
     <Compile Include="DPIScaledToolStripMenuItem.cs">

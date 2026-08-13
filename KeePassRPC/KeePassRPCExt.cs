@@ -328,6 +328,11 @@ KeePassRPC requires this port to be available: " + portNew + ". Technical detail
             int imageIndex = mainTabControl.ImageList.Images.Add(Resources.KPRPC64, Color.Transparent);
             keeTabPage.ImageIndex = imageIndex;
             mainTabControl.TabPages.Add(keeTabPage);
+
+            // The database-wide starting point, and only that. The grants themselves are
+            // edited on the root group, which reaches exactly the same entries; a second grant
+            // table here would put the widest rules in the database in two places at once.
+            AclDefaultUserControl.AttachTo(keeTabPage, mainTabControl, _host.MainWindow.ActiveDatabase, _host);
         }
 
         private void editGroupFormShown(object sender, EventArgs e)

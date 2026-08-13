@@ -40,10 +40,38 @@ namespace KeePassRPC.Forms
             _conf = entry.GetKPRPCConfigNormalised(strings, _dbConf.DefaultMatchAccuracy);
         }
 
+        /// <summary>
+        /// Whether the controls have finished being filled in, so that a change handler is
+        /// reporting a person rather than the dialog opening. A fork addition; see
+        /// <see cref="UpdateKPRPCJSON"/>.
+        /// </summary>
+        private bool _populated;
+
         private void UpdateKPRPCJSON(EntryConfigv2 conf)
         {
+            // Filling in the controls during Load raises their own change handlers, and those
+            // handlers end here, having already adjusted the config to match what they were
+            // set to. So merely opening an entry wrote a full config into an entry that had
+            // none, and KeePass then marked the database modified and recorded a history
+            // entry for a dialog nobody typed in. Measured on a fresh database: open an
+            // entry, press OK, and it gains a "KPRPC JSON" blob, a history record and a new
+            // modification time.
+            //
+            // Waiting until the dialog is populated leaves every real edit writing exactly as
+            // before. What is given up is materialising a config that was only ever implied,
+            // at the moment it is first looked at. Nothing depends on that: every reader
+            // normalises for itself through GetKPRPCConfigNormalised, and the comment on
+            // GetKPRPCConfig says the same thing about the database config, that it is
+            // rebuilt as needed rather than saved at "unexpected and impossible times".
+            //
+            // This matters more in this fork than upstream, because the ACL editor shares
+            // this dialog: reviewing who may reach an entry would otherwise modify the
+            // database every single time.
+            if (!_populated)
+                return;
+
             EntryConfigv2 defaultConf = (new EntryConfigv1(KeePassRPCPlugin._host.Database.GetKPRPCConfig().DefaultMatchAccuracy)).ConvertToV2(new GuidService());
-            
+
             // if the config is identical to an empty (default) config, only update if a JSON string already exists
             if (!conf.Equals(defaultConf) || _cd.Exists("KPRPC JSON"))
             {
@@ -189,6 +217,10 @@ namespace KeePassRPC.Forms
             string realmTooltip = "Set this to the realm (what the \"site says\") in the HTTP authentication popup dialog box for a more accurate match";
             toolTipRealm.SetToolTip(textBoxKeeRealm, realmTooltip);
             toolTipRealm.SetToolTip(labelRealm, realmTooltip);
+
+            // Everything above filled controls in, and several of those raised change
+            // handlers. From here on a change handler means a person.
+            _populated = true;
         }
 
         private void textBoxKeeRealm_TextChanged(object sender, EventArgs e)
