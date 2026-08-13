@@ -157,6 +157,14 @@ namespace KeePassRPC
                 }
                 if (logger != null) logger.WriteLine("Logger initialised.");
 
+                // The audit log has nowhere to complain if it cannot write itself, so give it
+                // somewhere. Silence would be the worst outcome: an audit log that has quietly
+                // stopped recording looks exactly like one with nothing to record.
+                Audit.SetProblemReporter(delegate(string message)
+                {
+                    if (logger != null) logger.WriteLine(message);
+                });
+
                 TLDRulesCache.Init(host.CustomConfig.GetString(
                     "KeePassRPC.publicSuffixDomainCache.path",
                     GetLocalConfigLocation() + "publicSuffixDomainCache.txt"));

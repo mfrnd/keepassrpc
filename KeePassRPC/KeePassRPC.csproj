@@ -117,6 +117,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Audit.cs" />
     <Compile Include="BigInteger.cs" />
     <Compile Include="DatabaseConfig.cs" />
     <Compile Include="DpiFix.cs" />

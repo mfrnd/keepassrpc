@@ -45,6 +45,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AuditTest.cs" />
     <Compile Include="EntryConfigConvert.cs" />
     <Compile Include="EntryConfigRoundtrip.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
