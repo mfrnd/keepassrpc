@@ -20,3 +20,6 @@
 /packages
 .vs
 Jayrock.Json.csproj.FileListAbsolute.txt
+
+# Reference clones of related repos, fetched on demand. Never committed.
+.tmp/

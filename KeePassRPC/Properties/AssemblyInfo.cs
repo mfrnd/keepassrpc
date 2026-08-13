@@ -1,4 +1,5 @@
 ﻿using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 // General assembly properties
@@ -20,3 +21,8 @@ using System.Runtime.InteropServices;
 // Assembly version information
 [assembly: AssemblyVersion("2.0.2.0")]
 [assembly: AssemblyFileVersion("2.0.2.0")] // also change AssemblyVersion and PluginVersion in KeePassRPCExt.cs!
+
+// The SRP exchange and the hashing it is built on are internal, and the tests that check
+// the 2048-bit group has to run a full exchange to be worth anything. Widening the
+// plugin's public surface for a test would be the worse trade.
+[assembly: InternalsVisibleTo("KeePassRPCTest")]
