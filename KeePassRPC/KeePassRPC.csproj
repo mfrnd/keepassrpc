@@ -230,6 +230,7 @@
     </Compile>
     <Compile Include="KeePassRPCService.DTOV1.cs" />
     <Compile Include="KeePassRPCService.DTOV2.cs" />
+    <Compile Include="KeePassRPCService.DTOV3.cs" />
     <Compile Include="KeePassRPCService.JSONRPC.cs" />
     <Compile Include="KeyChallengeResponse.cs" />
     <Compile Include="KeyContainerClass.cs" />
@@ -259,6 +260,10 @@
     <Compile Include="Models\DataExchange\V2\Group2.cs" />
     <Compile Include="Models\DataExchange\V2\Icon.cs" />
     <Compile Include="Models\DataExchange\V2\LightEntry2.cs" />
+    <Compile Include="Models\DataExchange\V3\Attachment3.cs" />
+    <Compile Include="Models\DataExchange\V3\Entry3.cs" />
+    <Compile Include="Models\DataExchange\V3\Field3.cs" />
+    <Compile Include="Models\DataExchange\V3\LightEntry3.cs" />
     <Compile Include="Models\GuidService.cs" />
     <Compile Include="Models\IGuidService.cs" />
     <Compile Include="Models\Persistent\EntryConfigv1.cs" />
