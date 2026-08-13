@@ -1,3 +1,21 @@
+> ### This is a fork
+>
+> It adds a third API generation to KeePassRPC: full access to an entry, meaning real custom
+> strings, notes and attachments rather than just a password, behind a per-client method allowlist and a
+> per-entry access control list, so that automation and AI agents can each be given a narrow,
+> revocable, audited slice of the database. Existing clients are unaffected; everything new is
+> negotiated by feature flag.
+>
+> **[`CONTRIBUTION.md`](CONTRIBUTION.md) is the place to start**: what the fork adds and why, with
+> screenshots of the new UI and diagrams of the local and remote call paths. The design is in
+> [`V3-DESIGN.md`](V3-DESIGN.md), what the controls are worth in
+> [`THREAT-MODEL.md`](THREAT-MODEL.md).
+>
+> Everything below this note is upstream's README, unchanged, including its download and install
+> instructions, which refer to the official plugin at
+> [kee-org/keepassrpc](https://github.com/kee-org/keepassrpc) rather than to this fork. There are no
+> releases here.
+
 # Simple and secure password management
 
 ## Kee adds free, secure and easy to use password management features to your web browser which save you time and keep your private data more secure.
