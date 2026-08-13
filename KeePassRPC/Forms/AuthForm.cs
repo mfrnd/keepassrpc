@@ -23,9 +23,17 @@ namespace KeePassRPC.Forms
         {
             InitializeComponent();
             SecurityLevel = securityLevel;
-            ClientName = SanitiseClientName(clientName);
+
+            // Both of these arrive from the network, from a client that has not authenticated
+            // yet, and both are concatenated into the RTF of the dialog below. The name has
+            // always been filtered to letters, digits, spaces and hyphens, so it could not
+            // carry RTF syntax; the description was not filtered at all, which let a caller
+            // close the enclosing group and write control words into the very prompt asking
+            // the user whether to hand over access to their passwords. Escaping both, and
+            // capping their length so neither can push the text a human needs out of view.
+            ClientName = RtfText.Escape(SanitiseClientName(clientName));
             if (string.IsNullOrWhiteSpace(ClientName)) ClientName = "Client with an invalid name (CAUTION!!!)";
-            ClientDescription = clientDescription;
+            ClientDescription = RtfText.Escape(clientDescription);
             if (string.IsNullOrWhiteSpace(ClientDescription)) ClientDescription = "Client has supplied no description (CAUTION!!!)";
             Password = password;
             Connection = connection;
@@ -55,6 +63,12 @@ namespace KeePassRPC.Forms
 }";
             richTextBoxSecurityLevel.Rtf = secLevel;
             richTextBoxSecurityLevel.LinkClicked += richTextBoxSecurityLevel_LinkClicked;
+
+            // The description is caller-supplied, so anything in it that looks like a URL
+            // should not also LOOK clickable. Nothing happens if it is clicked, since this
+            // box has no LinkClicked handler, but a link inside a security prompt is an
+            // invitation whether or not it works.
+            richTextBoxClientID.DetectUrls = false;
 
             richTextBoxClientID.Rtf = @"{\rtf1\ansi{\fonttbl\f0\fArial;}\f0A program claiming to be ""{\b " + ClientName + @"}"" is asking you to confirm you want to allow it to access your passwords.\par
 \par
