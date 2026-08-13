@@ -486,6 +486,13 @@
       copy "$(ProjectDir)JsonRpc\"*.cs "%25KPPTempDir%25\JsonRpc"
       if errorlevel 1 goto BuildEventFailed
 
+      mkdir "%25KPPTempDir%25\Acl"
+      copy "$(ProjectDir)Acl\"*.cs "%25KPPTempDir%25\Acl"
+      if errorlevel 1 goto BuildEventFailed
+      mkdir "%25KPPTempDir%25\Models\DataExchange\V3"
+      copy "$(ProjectDir)Models\DataExchange\V3\"*.cs "%25KPPTempDir%25\Models\DataExchange\V3"
+      if errorlevel 1 goto BuildEventFailed
+
       mkdir "%25KPPTempDir%25\Properties"
       copy "$(ProjectDir)Properties\AssemblyInfo.cs" "%25KPPTempDir%25\Properties\AssemblyInfo.cs"
       copy "$(ProjectDir)Properties\Resources.resx" "%25KPPTempDir%25\Properties\Resources.resx"
@@ -612,6 +619,13 @@
       mkdir "${KPPTempDir}\JsonRpc"
       cp "$(ProjectDir)JsonRpc\"*.cs "${KPPTempDir}\JsonRpc"
       if [ $? = 1 ]; then echo POSTBUILDSTEP for $(ProjectName) FAILED - copy JsonRpc sources; exit 1; fi
+
+      mkdir "${KPPTempDir}\Acl"
+      cp "$(ProjectDir)Acl\"*.cs "${KPPTempDir}\Acl"
+      if [ $? = 1 ]; then echo POSTBUILDSTEP for $(ProjectName) FAILED - copy Acl sources; exit 1; fi
+      mkdir "${KPPTempDir}\Models\DataExchange\V3"
+      cp "$(ProjectDir)Models\DataExchange\V3\"*.cs "${KPPTempDir}\Models\DataExchange\V3"
+      if [ $? = 1 ]; then echo POSTBUILDSTEP for $(ProjectName) FAILED - copy V3 model sources; exit 1; fi
             
       mkdir "${KPPTempDir}\Properties"
       cp "$(ProjectDir)Properties\AssemblyInfo.cs" "${KPPTempDir}\Properties\AssemblyInfo.cs"
