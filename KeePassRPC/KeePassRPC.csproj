@@ -228,6 +228,7 @@
     <Compile Include="Forms\OptionsForm.Designer.cs">
       <DependentUpon>OptionsForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="KeePassRPCService.AclGuard.cs" />
     <Compile Include="KeePassRPCService.DTOV1.cs" />
     <Compile Include="KeePassRPCService.DTOV2.cs" />
     <Compile Include="KeePassRPCService.DTOV3.cs" />
@@ -235,6 +236,7 @@
     <Compile Include="KeyChallengeResponse.cs" />
     <Compile Include="KeyContainerClass.cs" />
     <Compile Include="MatchAccuracyMethod.cs" />
+    <Compile Include="MethodProfiles.cs" />
     <Compile Include="Models\DataExchange\ApplicationMetadata.cs" />
     <Compile Include="Models\DataExchange\AuthenticationResult.cs" />
     <Compile Include="Models\DataExchange\Configuration.cs" />

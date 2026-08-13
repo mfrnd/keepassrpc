@@ -35,6 +35,11 @@ namespace KeePassRPC
         private LightEntry2 GetEntry2FromPwEntry(PwEntry pwe, EntryConfigv2 conf, int matchAccuracy, bool fullDetails,
             PwDatabase db, bool abortIfHidden, bool urlRequired)
         {
+            // See the equivalent in DTOV1: one chokepoint per generation, filtering for
+            // subjects whose ACL scope covers legacy access.
+            if (!LegacyReadPermitted(db, pwe, "v2"))
+                return null;
+
             var fields = new List<ResolvedField>();
             var urls = new List<string>();
             string usernameValue = "";

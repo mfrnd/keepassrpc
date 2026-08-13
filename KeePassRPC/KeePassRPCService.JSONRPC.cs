@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -15,6 +15,7 @@ using KeePassLib.Cryptography.PasswordGenerator;
 using KeePassLib.Security;
 using KeePassLib.Serialization;
 using KeePassLib.Utility;
+using KeePassRPC.Acl;
 using KeePassRPC.Models.DataExchange;
 using KeePassRPC.Models.DataExchange.V2;
 using KeePassRPC.Models.Persistent;
@@ -286,6 +287,8 @@ namespace KeePassRPC
                 if (matchedLogin == null)
                     throw new Exception("Could not find requested entry.");
 
+                RequireLegacyWrite(_host.Database, matchedLogin, AclVerb.Delete, "RemoveEntry");
+
                 PwGroup matchedLoginParent = matchedLogin.ParentGroup;
                 if (matchedLoginParent == null) return false; // Can't remove
 
@@ -347,6 +350,8 @@ namespace KeePassRPC
 
                 if (matchedGroup == null)
                     throw new Exception("Could not find requested entry.");
+
+                RequireLegacyWrite(_host.Database, matchedGroup, AclVerb.Delete, "RemoveGroup");
 
                 PwGroup matchedGroupParent = matchedGroup.ParentGroup;
                 if (matchedGroupParent == null) return false; // Can't remove
@@ -426,6 +431,11 @@ namespace KeePassRPC
                     parentGroup = matchedGroup;
             }
 
+            // Checked before the entry exists, on the group it would land in: that is the
+            // grant the new entry will inherit, and the conversion below runs too late to
+            // prevent anything.
+            RequireLegacyWrite(chosenDB, parentGroup, AclVerb.Write, "AddLogin");
+
             parentGroup.AddEntry(newLogin, true);
 
             if (_host.CustomConfig.GetBool("KeePassRPC.KeeFox.editNewEntries", false))
@@ -463,6 +473,8 @@ namespace KeePassRPC
                 if (matchedGroup != null)
                     parentGroup = matchedGroup;
             }
+
+            RequireLegacyWrite(_host.Database, parentGroup, AclVerb.Write, "AddGroup");
 
             parentGroup.AddGroup(newGroup, true);
 
@@ -510,6 +522,8 @@ namespace KeePassRPC
             PwEntry entryToUpdate = GetRootPwGroup(chosenDB).FindEntry(pwuuid, true);
             if (entryToUpdate == null)
                 throw new Exception("oldLoginUUID could not be resolved to an existing entry.");
+
+            RequireLegacyWrite(chosenDB, entryToUpdate, AclVerb.Write, "UpdateLogin");
 
             MergeEntries(entryToUpdate, newLoginData, urlMergeMode, chosenDB);
 
@@ -1009,6 +1023,8 @@ namespace KeePassRPC
                     parentGroup = matchedGroup;
             }
 
+            RequireLegacyWrite(chosenDb, parentGroup, AclVerb.Write, "AddEntry");
+
             parentGroup.AddEntry(newLogin, true);
 
             if (_host.CustomConfig.GetBool("KeePassRPC.KeeFox.editNewEntries", false))
@@ -1062,6 +1078,8 @@ namespace KeePassRPC
             PwEntry entryToUpdate = GetRootPwGroup(chosenDb).FindEntry(pwuuid, true);
             if (entryToUpdate == null)
                 throw new Exception("oldLoginUUID could not be resolved to an existing entry.");
+
+            RequireLegacyWrite(chosenDb, entryToUpdate, AclVerb.Write, "UpdateEntry");
 
             MergeEntries(entryToUpdate, newPwEntryData, urlMergeMode, chosenDb);
             _host.MainWindow.BeginInvoke(new dlgSaveDB(saveDB), chosenDb);
