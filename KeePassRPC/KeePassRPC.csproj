@@ -117,6 +117,12 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Acl\AclDocument.cs" />
+    <Compile Include="Acl\AclGrant.cs" />
+    <Compile Include="Acl\AclResolver.cs" />
+    <Compile Include="Acl\AclScope.cs" />
+    <Compile Include="Acl\AclVerb.cs" />
+    <Compile Include="Acl\KdbxFormat.cs" />
     <Compile Include="Audit.cs" />
     <Compile Include="BigInteger.cs" />
     <Compile Include="CryptoV2.cs" />
@@ -141,6 +147,9 @@
     <Compile Include="Forms\KeeEntryUserControl.Designer.cs">
       <DependentUpon>KeeEntryUserControl.cs</DependentUpon>
     </Compile>
+    <Compile Include="Acl\AclDefault.cs" />
+    <Compile Include="Acl\AclProfiles.cs" />
+    <Compile Include="Acl\AclVerbView.cs" />
     <Compile Include="Forms\KeeFieldForm.cs">
       <SubType>Form</SubType>
     </Compile>
