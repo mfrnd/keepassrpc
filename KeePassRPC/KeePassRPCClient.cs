@@ -74,7 +74,12 @@ namespace KeePassRPC
 
             // Pairing can run in the 2048-bit RFC 5054 group instead of upstream's 512-bit
             // one. Offered to everyone, used only by clients that declare it; see SrpGroup.
-            SrpGroup.StrongGroupFeatureName
+            SrpGroup.StrongGroupFeatureName,
+
+            // Full-entry API: real custom strings, notes and attachments, behind the ACL.
+            // Offered to every client, but a client only reaches it if its subject holds a
+            // profile granting the V3 methods, and then only for entries the ACL allows.
+            "KPRPC_FEATURE_DTO_V3"
 
             // in the rare event that we want to check for the absense of a feature
             // we would add a feature flag along the lines of "KPRPC_FEATURE_REMOVED_INCOMPATIBLE_THING_X"
@@ -911,6 +916,9 @@ See https://forum.kee.pm/t/3143/ for more information.",
             (dispatcher as KprpcJsonRpcDispatcher).ClientMetadata = new ClientMetadata
             {
                 Features = ClientFeatures,
+                // UserName is empty unless the connection is authorised, so an
+                // unauthenticated caller cannot present somebody else's subject.
+                Subject = UserName,
                 IsRemote = IsRemote
             };
 
