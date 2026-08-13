@@ -1,0 +1,25 @@
+{
+    "version": "3.0.0",
+    "description": "KeePassRPC V3: a full-entry KeePass API behind a subject-aware ACL for automation and AI agents. This fork installs as its own plugin, so install it or upstream's keepass-plugin-keepassrpc, not both.",
+    "homepage": "https://github.com/mfrnd/keepassrpc",
+    "license": "GPL-2.0-or-later",
+    "notes": [
+        "This is a fork of KeePassRPC. It ships the same KeePassRPC.plgx filename as upstream, so KeePass loads whichever one is present. Do not install this alongside upstream's keepass-plugin-keepassrpc.",
+        "Restart KeePass after installing so it compiles and loads the plugin."
+    ],
+    "depends": "extras/keepass",
+    "url": "https://github.com/mfrnd/keepassrpc/releases/download/v3.0.0/KeePassRPC.plgx",
+    "hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "installer": {
+        "script": "Copy-Item \"$dir\\KeePassRPC.plgx\" \"$(appdir keepass $global)\\current\\Plugins\\KeePassRPC.plgx\" -Force"
+    },
+    "uninstaller": {
+        "script": "Remove-Item \"$(appdir keepass $global)\\current\\Plugins\\KeePassRPC.plgx\" -Force -ErrorAction SilentlyContinue"
+    },
+    "checkver": {
+        "github": "https://github.com/mfrnd/keepassrpc"
+    },
+    "autoupdate": {
+        "url": "https://github.com/mfrnd/keepassrpc/releases/download/v$version/KeePassRPC.plgx"
+    }
+}
