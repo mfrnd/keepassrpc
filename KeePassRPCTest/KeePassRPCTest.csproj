@@ -51,6 +51,7 @@
     <Compile Include="DialogCustomDataTest.cs" />
     <Compile Include="EntryConfigConvert.cs" />
     <Compile Include="EntryConfigRoundtrip.cs" />
+    <Compile Include="MethodProfilesTest.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RestingScrollBarTest.cs" />
     <Compile Include="RtfTextTest.cs" />

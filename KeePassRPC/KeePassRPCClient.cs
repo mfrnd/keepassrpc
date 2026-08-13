@@ -180,6 +180,35 @@ namespace KeePassRPC
         }
 
         /// <summary>
+        /// The method profiles this subject holds, as a comma-separated spec. Read fresh for
+        /// every request, so narrowing a profile takes effect on the next call rather than at
+        /// the next restart, and revoking one does not wait for a client to reconnect.
+        ///
+        /// A subject with no entry of its own gets <c>none</c>, which is what makes a newly
+        /// paired client useless until a human grants it something.
+        ///
+        /// There is no configurable fallback. There was one, so that arriving on a KeePass
+        /// with clients already paired did not deny all of them at once, and it has been
+        /// replaced by <see cref="LegacyClients"/>, which does that job once and writes a real
+        /// setting per client. A fallback that outlives the migration it was for is a control
+        /// that can hand every future client the whole database, and a client that reads as
+        /// refused on the Authorised clients tab while the gate quietly allows it is worse
+        /// than either state on its own.
+        /// </summary>
+        private string MethodProfile
+        {
+            get
+            {
+                string subject = UserName;
+                if (string.IsNullOrEmpty(subject))
+                    return MethodProfiles.None;
+
+                return KPRPC._host.CustomConfig.GetString(
+                    "KeePassRPC.Profile." + subject, MethodProfiles.None);
+            }
+        }
+
+        /// <summary>
         /// The secret key used to encrypt messages
         /// </summary>
         private KeyContainerClass KeyContainer
@@ -753,6 +782,10 @@ See https://forum.kee.pm/t/3143/ for more information.",
                         {
                             // We assume the user has manually verified the client name as part of the initial SRP setup so it's fairly safe to use it to determine the type of client connection to which we want to promote our null connection
                             KPRPC.PromoteGeneralRPCClient(this, KeyContainer.ClientName);
+                            // Backfill: a subject paired before this fork existed becomes
+                            // offerable the first time it reconnects, without waiting for it
+                            // to be paired again.
+                            SubjectRegistry.Remember(KPRPC._host, userName);
                         }
                     }
                 }
@@ -887,6 +920,9 @@ See https://forum.kee.pm/t/3143/ for more information.",
                     // to authenticate an exchange with.
                     data2client.crypto = NegotiateCryptoV2(srpem.crypto, _srp.Key);
                     Authorised = true;
+                    // Note the identity so it can be offered when granting, rather than having
+                    // to be remembered and retyped exactly.
+                    SubjectRegistry.Remember(KPRPC._host, userName);
                     // We assume the user has checked the client name as part of the initial SRP setup so it's fairly safe to use it to determine the type of client connection to which we want to promote our null connection
                     KPRPC.PromoteGeneralRPCClient(this, clientName);
                     KPRPC.InvokeMainThread(new HideAuthDialogDelegate(HideAuthDialog));
@@ -913,13 +949,26 @@ See https://forum.kee.pm/t/3143/ for more information.",
 
             JsonRpcDispatcherFactory.Current = s => new KprpcJsonRpcDispatcher(s);
             JsonRpcDispatcher dispatcher = JsonRpcDispatcherFactory.CreateDispatcher(service);
-            (dispatcher as KprpcJsonRpcDispatcher).ClientMetadata = new ClientMetadata
+            KprpcJsonRpcDispatcher kprpcDispatcher = (KprpcJsonRpcDispatcher)dispatcher;
+            kprpcDispatcher.ClientMetadata = new ClientMetadata
             {
                 Features = ClientFeatures,
-                // UserName is empty unless the connection is authorised, so an
-                // unauthenticated caller cannot present somebody else's subject.
+                // UserName is empty unless the connection is authorised, so an unauthenticated
+                // caller cannot reach the gate carrying somebody else's subject.
                 Subject = UserName,
+                MethodProfile = MethodProfile,
                 IsRemote = IsRemote
+            };
+            kprpcDispatcher.AuditLog = delegate(string message)
+            {
+                if (KPRPC.logger != null) KPRPC.logger.WriteLine(message);
+            };
+            kprpcDispatcher.AuditDenial = delegate(string deniedSubject, string deniedMethod, string reason)
+            {
+                // The gate's refusals belong in the same log as the ACL's. Otherwise "what was
+                // this client refused" has two answers in two places, and the method-gate half
+                // is the one that only ever appeared in a debug line.
+                Audit.Record(KPRPC._host, deniedSubject, IsRemote, deniedMethod, null, null, false, reason);
             };
 
             using (StringReader request = new StringReader(jsonrpc))

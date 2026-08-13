@@ -34,6 +34,14 @@ namespace KeePassRPC
         private LightEntry GetEntryFromPwEntry(PwEntry pwe, EntryConfigv2 conf, int matchAccuracy, bool fullDetails,
             PwDatabase db, bool abortIfHidden)
         {
+            // The ACL, for subjects whose scope covers v1. Placed here because this is the one
+            // point every v1 read passes through, the recursive database dumps included, so a
+            // read method added by a future upstream merge is filtered without being noticed.
+            // Returning null is the shape upstream already uses for a hidden entry, and every
+            // caller either checks for it or hands it straight back to the client.
+            if (!LegacyReadPermitted(db, pwe, "v1"))
+                return null;
+
             ArrayList formFieldList = new ArrayList();
             ArrayList URLs = new ArrayList();
             bool alwaysAutoFill = false;
