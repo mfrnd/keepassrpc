@@ -874,12 +874,12 @@ KeePassRPC requires this port to be available: " + portNew + ". Technical detail
             }
         }
 
-        internal void AddRPCClientConnection(IWebSocketConnection webSocket)
+        internal void AddRPCClientConnection(IWebSocketConnection webSocket, bool isRemote)
         {
             lock (_lockRPCClientManagers)
             {
                 _lockRPCClientManagers.HeldBy = Thread.CurrentThread.ManagedThreadId;
-                _RPCClientManagers["general"].AddRPCClientConnection(new KeePassRPCClientConnection(webSocket, false, this));
+                _RPCClientManagers["general"].AddRPCClientConnection(new KeePassRPCClientConnection(webSocket, false, this, isRemote));
             }
         }
 

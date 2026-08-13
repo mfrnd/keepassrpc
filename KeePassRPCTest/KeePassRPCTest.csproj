@@ -50,6 +50,7 @@
     <Compile Include="EntryConfigRoundtrip.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RtfTextTest.cs" />
+    <Compile Include="RemoteAccessTest.cs" />
     <Compile Include="SrpExchange.cs" />
     <Compile Include="SrpGroupTest.cs" />
     <Compile Include="URLMatchTest.cs" />

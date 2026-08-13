@@ -103,6 +103,7 @@ namespace KeePassRPC
         private int securityLevelClientMinimum;
         private string userName;
         private string[] _clientFeatures;
+        private readonly bool _isRemote;
 
         // Set once the newer session crypto has been negotiated and agreed. Null means the
         // original suite, which is what every legacy client keeps using.
@@ -151,6 +152,16 @@ namespace KeePassRPC
         public string[] ClientFeatures
         {
             get { return _clientFeatures; }
+        }
+
+        /// <summary>
+        /// Whether this connection reached the plugin from beyond this machine. Decided by
+        /// <see cref="RemoteAccess"/> when the socket opened, and read-only thereafter: it is
+        /// a property of where the connection came from, not of anything the client says.
+        /// </summary>
+        public bool IsRemote
+        {
+            get { return _isRemote; }
         }
 
 
@@ -300,10 +311,12 @@ See https://forum.kee.pm/t/3143/ for more information.",
         private KeyContainerClass _keyContainer;
         private string clientName;
         
-        public KeePassRPCClientConnection(IWebSocketConnection connection, bool isAuthorised, KeePassRPCExt kprpc)
+        public KeePassRPCClientConnection(IWebSocketConnection connection, bool isAuthorised, KeePassRPCExt kprpc,
+            bool isRemote)
         {
             WebSocketConnection = connection;
             Authorised = isAuthorised;
+            _isRemote = isRemote;
 
             //TODO2: Can we lazy load these since some sessions will require only one of these authentication mechanisms?
             _srp = new SRP();
@@ -427,7 +440,17 @@ See https://forum.kee.pm/t/3143/ for more information.",
                     return;
                 }
             }
-            
+
+            if (IsRemote)
+            {
+                string missing = MissingRemoteRequirement(kprpcm);
+                if (missing != null)
+                {
+                    RefuseRemoteMissingFeature(missing);
+                    return;
+                }
+            }
+
             switch (kprpcm.protocol)
             {
                 case "setup": KPRPCReceiveSetup(kprpcm); break;
@@ -449,6 +472,87 @@ See https://forum.kee.pm/t/3143/ for more information.",
         private bool ClientWantsCryptoV2()
         {
             return _clientFeatures != null && Array.IndexOf(_clientFeatures, CryptoV2.FeatureName) >= 0;
+        }
+
+        /// <summary>Whether this message is an attempt to pair, rather than to reconnect.</summary>
+        private static bool IsPairingAttempt(KPRPCMessage kprpcm)
+        {
+            // Mirrors how KPRPCReceiveSetup tells the two apart: an srp block means SRP
+            // pairing, a key block means a key challenge against a key agreed earlier.
+            return kprpcm.protocol == "setup" && kprpcm.srp != null;
+        }
+
+        /// <summary>
+        /// The feature a remote connection has to declare and has not, or null if it meets
+        /// every requirement. Local connections are never asked any of this.
+        ///
+        /// **The session suite.** The original one derives a single key from the paired
+        /// secret and keeps it for the life of the pairing, authenticates with a construction
+        /// that is not an HMAC, and numbers nothing, so a recorded message can be replayed at
+        /// will. That was survivable while the only party who could reach the socket could
+        /// also read the key off disk, which is why it is still offered to local clients
+        /// unchanged, because Kee depends on it byte for byte. None of it survives a network.
+        ///
+        /// Checked twice, because a claim and a fact are different things. During the
+        /// handshake the declared feature is all there is to go on. Once actual calls start
+        /// the session key is the evidence: a client that declared the feature and then did
+        /// not complete the key agreement, by omitting its public key or by failing it, would
+        /// otherwise fall through to the legacy path and be talking across a network under a
+        /// static key.
+        ///
+        /// **The SRP group.** Pairing may happen remotely, a decision taken deliberately and
+        /// recorded in NETWORK-EXPOSURE.md, and a remote pairing is the one case where somebody
+        /// could plausibly watch the exchange. A 512-bit discrete log is within reach of a
+        /// determined attacker, and solving one yields the paired key, which authenticates
+        /// everything afterwards including the negotiated suite's own key agreement. So a
+        /// remote pairing must run in the 2048-bit group.
+        ///
+        /// Asked only of a connection that is actually pairing. A key challenge proves
+        /// possession of a key agreed earlier and never touches N, so refusing a reconnect
+        /// over a group it does not use would be a rule about the wrong thing.
+        ///
+        /// Note what this deliberately does not do: it does not record which group a key was
+        /// paired in, so a key from an older 512-bit pairing still reconnects remotely. Those
+        /// pairings happened over loopback, where the exchange could not be observed, so the
+        /// group did not weaken the key they produced. From here on no remote pairing
+        /// can produce one at all.
+        /// </summary>
+        private string MissingRemoteRequirement(KPRPCMessage kprpcm)
+        {
+            if (!ClientWantsCryptoV2())
+                return CryptoV2.FeatureName;
+
+            if (kprpcm.protocol == "jsonrpc" && _sessionKey == null)
+                return CryptoV2.FeatureName;
+
+            if (IsPairingAttempt(kprpcm) && SrpGroup.ForFeatures(_clientFeatures) != SrpGroup.Rfc5054_2048)
+                return SrpGroup.StrongGroupFeatureName;
+
+            return null;
+        }
+
+        private void RefuseRemoteMissingFeature(string featureName)
+        {
+            KPRPCMessage data2client = new KPRPCMessage();
+            data2client.protocol = "error";
+            data2client.srp = new SRPParams();
+            data2client.version = ProtocolVersion;
+
+            // One code for both requirements, with the missing feature as the parameter, so
+            // a client is told exactly what to declare rather than left to guess which of
+            // them it fell short of.
+            data2client.error = new Error(ErrorCode.AUTH_CRYPTO_TOO_WEAK, new[] { featureName });
+
+            if (KPRPC.logger != null)
+                KPRPC.logger.WriteLine("Refused a remote connection that is not using " + featureName + ".");
+
+            // Worth a durable line rather than only a debug one: a remote client failing this
+            // is either misconfigured or is an attempt to negotiate weaker crypto from a
+            // network, and the two look identical from here.
+            Audit.Record(KPRPC._host, UserName, true, "<connection>", null, null, false,
+                "remote connections must use " + featureName);
+
+            AbortWithMessageToClient(data2client);
         }
 
         /// <summary>
@@ -806,9 +910,10 @@ See https://forum.kee.pm/t/3143/ for more information.",
             JsonRpcDispatcher dispatcher = JsonRpcDispatcherFactory.CreateDispatcher(service);
             (dispatcher as KprpcJsonRpcDispatcher).ClientMetadata = new ClientMetadata
             {
-                Features = ClientFeatures
+                Features = ClientFeatures,
+                IsRemote = IsRemote
             };
-            
+
             using (StringReader request = new StringReader(jsonrpc))
             using (StringWriter response = new StringWriter(sb))
             {

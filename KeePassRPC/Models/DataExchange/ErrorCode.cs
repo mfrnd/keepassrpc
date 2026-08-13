@@ -14,6 +14,10 @@ namespace KeePassRPC.Models.DataExchange
         AUTH_RESTART = 9,
         AUTH_EXPIRED = 10,
         AUTH_INVALID_PARAM = 11,
-        AUTH_MISSING_PARAM = 12
+        AUTH_MISSING_PARAM = 12,
+
+        // The connection came from off this machine and is not using the negotiated session
+        // crypto. The message carries the name of the feature the client has to declare.
+        AUTH_CRYPTO_TOO_WEAK = 13
     }
 }

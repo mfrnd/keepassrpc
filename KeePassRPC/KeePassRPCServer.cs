@@ -52,7 +52,12 @@ namespace KeePassRPC
                         }
                     }
                 } else {
-                    KeePassRPCPlugin.AddRPCClientConnection(socket);
+                    // Decided once, when the connection opens, and fixed for its lifetime.
+                    // Nothing a client sends afterwards can change where it came from.
+                    bool isRemote = RemoteAccess.IsRemote(
+                        socket.ConnectionInfo.ClientIpAddress,
+                        socket.ConnectionInfo.Path);
+                    KeePassRPCPlugin.AddRPCClientConnection(socket, isRemote);
                 }
             };
             socket.OnClose = delegate
