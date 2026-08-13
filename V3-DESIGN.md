@@ -571,6 +571,99 @@ no longer has anything to do with protecting the ACL, which now lives elsewhere 
 
 Grants are made by a human, through the plugin, and by nothing else.
 
+### The v1/v2 bypass, and the method gate that closes it
+
+**An ACL that guards only V3 is decorative, because a client can simply not use V3.** v1 and v2 stay
+fully functional and completely unguarded: `GetAllLogins`, `GetAllEntries`, `GetChildEntries` and
+`FindLogins` read every entry in every open database, and `AddLogin`, `UpdateLogin`, `RemoveEntry`,
+`AddGroup`, `RemoveGroup` and v2's `AddEntry`/`UpdateEntry` write them. Pairing today authorises a
+client wholesale, so any paired subject reaches all of it.
+
+So the ACL is not the outer boundary. The boundary is a **per-subject method allowlist, default
+deny**, enforced before dispatch.
+
+**Where.** `KprpcJsonRpcDispatcher.Invoke(IDictionary request, bool authorised)`
+(`KeePassRPC/JsonRpc/KprpcJsonRpcDispatcher.cs`) is upstream's own dispatcher subclass. It sees the
+raw request, so it sees `method`, and it runs after decryption and authorisation. Every JSON-RPC call
+in the plugin passes through it. One override, one place.
+
+**Who.** The subject already exists: `userName`, established at SRP pairing and persisted as
+`KeePassRPC.Key.<userName>` in KeePass's config. It needs plumbing into the dispatcher beside
+`ClientMetadata`, which is already set at the dispatch site (`KeePassRPCClient.cs:715`).
+
+**Why an allowlist and not a blocklist of v1/v2.** An allowlist is the only form that survives a
+merge from upstream. Blocklist the legacy methods and the next upstream release adds one that is open
+by default; allowlist the permitted ones and anything new is denied until a human decides otherwise.
+This is the same reasoning as reserving the whole `KPRPC` field prefix rather than enumerating keys.
+
+Expressed as profiles recorded with the pairing, chosen by a human at pairing time, same trust root
+as the grants:
+
+| subject | profile | why |
+| --- | --- | --- |
+| an AI agent | V3 methods only | its only door is the one the ACL guards |
+| an existing legacy client | v1 today, v1 + V3 during transition, V3 after | it resolves secrets over v1 right now |
+| a browser extension, if ever used | v1 + v2 | form filling needs nothing else |
+| **a newly paired client** | **nothing until chosen** | default deny applies to pairing too |
+
+**Blocking legacy is the strong guarantee; filtering it is the complete one.** Blocking closes the
+bypass for agents, but a subject that legitimately needs v1 is then still unguarded within v1. The
+fuller answer is to run v1 and v2 entry access through the same ACL for any subject that has one.
+Upstream already has a precedent hook for filtering reads, the `Hide` matcher and its
+`abortIfHidden` path. That is more work and it risks live secret resolution, so it is a later step,
+not the first one.
+
+**Built 2026-08-12, and the predicted hook was the right one.** Every v1 and v2 read funnels through
+one conversion per generation, `GetEntryFromPwEntry` and `GetEntry2FromPwEntry`, including the
+recursive whole-database dumps, which reach entries through the same call. Filtering there rather
+than at twenty method sites is what makes the coverage checkable, and it means a read method arriving
+from a future upstream merge is filtered without anybody remembering to do it. Returning null is
+exactly what `abortIfHidden` already does, and every call site was checked individually beforehand:
+each either tests for null or hands it straight back to the client. Writes are checked explicitly
+before mutating, because the conversion runs afterwards and filtering there would create or delete
+the entry and then decline to describe it.
+
+It is **opt-in per subject** (`KeePassRPC.AclScope.<subject>`, default `v3`), for the reason that
+made this the last step rather than the first: a v1 read returns a list, so a wrongly filtered read
+looks like an empty database rather than an error, and v1 resolves secrets in production today. An
+unrecognised scope value guards rather than not, deliberately asymmetric with an absent one: absent
+means nobody has considered the subject, whereas unreadable means somebody configured it and got it
+wrong, and of those two mistakes only one fails loudly enough to get fixed.
+
+One mapping worth stating: `read` is required even for the "light" DTO, because a v1 `LightEntry`
+carries the username and the URLs. That is already more than `list` is defined to disclose, so there
+is no honest way to serve one on a list grant.
+
+**Ordering:** the method gate ships **with the ACL and before the V3 write path**, for the same
+reason the ACL precedes writes. Shipping V3 while v1 is open would mean the guarded door is the only
+one anybody bothered to lock.
+
+### As built, 2026-08-11
+
+Implemented as designed, in `MethodProfiles.cs` and the `Refuse` override in
+`KprpcJsonRpcDispatcher`. Four details are worth recording because they are not obvious from the
+design above, and one of them is a hole that a straightforward implementation would have left open.
+
+**The gate must resolve the method name the way the dispatcher does, not the way the client sent
+it.** Jayrock's `ServiceClass.FindMethodByName` tries a case-sensitive lookup and then falls back to
+a case-insensitive one, so `getalllogins` reaches `GetAllLogins`. A gate comparing the name as sent,
+case-sensitively, would fail to recognise a forbidden method and then hand it to a dispatcher that
+resolves it perfectly well. The gate therefore resolves the canonical name through the same
+`FindMethodByName` before deciding, and compares profile entries with `OrdinalIgnoreCase`. Verified
+live: with the `v3` profile, both `GetAllLogins` and `getalllogins` are refused.
+
+**A denial returns a JSON-RPC error, it does not throw.** Nothing between `Process` and the Fleck
+socket handler catches exceptions, so throwing would unwind the connection and a client would be
+unable to recover from asking once for something it may not have. The refusal is built with the base
+class's own `CreateResponse` and `OnError`, so the client sees an ordinary error. Verified live: a
+session survives repeated denials and keeps serving permitted calls afterwards.
+
+**Profiles are defined in code, never in configuration.** Configuration records only which profiles a
+subject holds. That is what makes the allowlist survive an upstream merge: a new method belongs to no
+profile and is refused until someone adds it. `MethodProfilesTest` reflects over every
+`[JsonRpcMethod]` on the service and fails if the two ever disagree, so the decision is forced at
+build time rather than discovered as a mystery denial in production.
+
 ### Session crypto, as built 2026-08-12
 
 The wire crypto was upstream's and weak, and the reason to leave it alone was compatibility. With
