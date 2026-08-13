@@ -499,6 +499,44 @@ both are fixed:
 Verified by opening an entry twice, the database settings and a group dialog, pressing OK on each,
 saving, and diffing the `.kdbx` against a copy taken beforehand: no difference at all.
 
+**A client's access is one choice, not two settings.** The method profile and the ACL scope were
+separately editable, as a dropdown and a tickbox, and between them nobody could say what a client
+actually held. They are not independent: the tickbox only ever spoke about the older API, so it said
+nothing at all for a client on V3 and the combination it implied there could not occur.
+`AccessChoice` offers the pairs that are real, under names that say what the client gets:
+
+| shown | `KeePassRPC.Profile.<subject>` | `KeePassRPC.AclScope.<subject>` |
+| --- | --- | --- |
+| `refused` | `none` | `v3` |
+| `legacy API, unrestricted` | `legacy` | `v3` |
+| `legacy API, with ACL` | `legacy` | `all` |
+| `V3 API, with ACL` | `v3` | `v3` |
+| `all APIs, with ACL` | `legacy,v3` | `all` |
+
+`refused` is a listed option rather than an absence because `AceCustomConfig` has no delete:
+revoking a client is exactly setting it back to `none`. There is deliberately no "all APIs,
+unrestricted", because unrestricted already means every entry of every open database and adding V3
+to it grants nothing further; a second spelling of the widest setting is a second thing to audit.
+
+Two consequences are accepted rather than worked around. A client cannot drift between the older API
+and V3, and moving it takes a human editing this setting. And a configuration written by hand that
+this list cannot express, `legacy,v3` without the ACL for instance, is reported verbatim and leaves
+the dropdown blank rather than being rounded to the nearest option, because rounding would misreport
+what the gate is enforcing and invite somebody to press Apply and change it without meaning to.
+
+**Pairing asks what the client may call.** The gate is default deny, so a client that has just
+completed SRP can call nothing at all, and the place that is set is three clicks into an options
+dialog nobody has a reason to open. Somebody who has just typed a pairing code would find their new
+client simply broken, and the obvious fix to reach for is the widest one. So the plugin asks at the
+moment pairing completes, which is the one moment a human is certainly present: the code is rendered
+only on the KeePass host's screen and pairing cannot finish without someone reading it.
+
+The prompt defaults to `none` and has no default button, so Escape, the close box and a stray Enter
+all leave the client refused, which is the state it was already in. It is skipped for a subject that
+already holds a profile, because re-pairing an existing client is a re-key rather than a new
+decision and asking every time would train people to dismiss it. It chooses and does not write: the
+caller stores the answer, which keeps the defaults checkable without a running KeePass.
+
 ### Verbs
 
 A ladder, each implying the ones below:
@@ -663,6 +701,44 @@ subject holds. That is what makes the allowlist survive an upstream merge: a new
 profile and is refused until someone adds it. `MethodProfilesTest` reflects over every
 `[JsonRpcMethod]` on the service and fails if the two ever disagree, so the decision is forced at
 build time rather than discovered as a mystery denial in production.
+
+**Arriving on a KeePass that already has clients.** Two rules in this project genuinely conflict
+here: nothing may have a permissive default, and v1 secret resolution must not break. A gate that is
+default-deny the moment it is installed breaks every one of the already-paired clients at once.
+
+This was first answered with a knob, `KeePassRPC.MethodGate.DefaultProfile`, applied to any subject
+with no entry of its own: set it to `legacy`, work down the list, set it back to `none`. **Removed
+2026-08-13**, and replaced by `LegacyClients.Migrate`, which runs once at start-up and writes a real
+setting for each client already paired.
+
+The knob was rejected on the grounds it was accepted on. It was defended as a deliberate, visible,
+single-line opt-out, and it was none of those in practice: it sat on the tab somebody opens to
+tighten access, it was invisible in every per-client row it silently widened, and it applied to
+every client paired in the future as much as to the ones it was written for. A control that grants
+the whole database to clients that do not exist yet is not a migration step, it is a permissive
+default with a longer name. A migration cannot be left switched on by accident.
+
+```text
+KeePassRPC.Profile.<subject>                        the profiles a subject holds, comma-separated
+KeePassRPC.AclScope.<subject>                       how far the ACL reaches for that subject
+KeePassRPC.MethodGate.LegacyClientsMigrated         set once the one-off migration has run
+```
+
+Three properties make an automatic grant defensible where a standing fallback was not. It grants
+only what those clients already had, `legacy` with the ACL standing aside, so it widens nothing. It
+writes only for a subject that holds a `KeePassRPC.Key.<subject>` entry, so a name is never
+authority to grant. And it runs once, remembered by its own key, so it cannot hand access back to a
+client somebody has since taken it from.
+
+`SubjectRegistry` reaches those names partly by reflection, and an earlier draft of this section
+refused to migrate access on that basis: the worst failure of reflection is a private field a
+KeePass update renames without warning. That argument survives, and is why the grant follows the
+key rather than the name. If the enumeration comes back short, the clients it missed are refused,
+not granted, which is the safe direction and is visible on the Authorised clients tab as a row
+reading "refused  (not set)".
+
+Profiles are read fresh on every request, so narrowing or revoking one takes effect on the next call
+rather than at the next restart.
 
 ### Session crypto, as built 2026-08-12
 
