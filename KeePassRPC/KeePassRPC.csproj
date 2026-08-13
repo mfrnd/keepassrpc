@@ -266,6 +266,7 @@
     <Compile Include="RPCClientManagers.cs" />
     <Compile Include="SecureEdit.cs" />
     <Compile Include="RtfText.cs" />
+    <Compile Include="SrpGroup.cs" />
     <Compile Include="SRP.cs" />
     <Compile Include="URLSummary.cs" />
     <Compile Include="Utils.cs" />

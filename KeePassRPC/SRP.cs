@@ -19,6 +19,7 @@ namespace KeePassRPC
         private BigInteger _B;
         private string _Bstr;
         private BigInteger _b;
+        private SrpGroup _group;
 
         public BigInteger N { get { return _N; } }
         public string Nstr { get { return _Nstr; } }
@@ -33,6 +34,9 @@ namespace KeePassRPC
         public BigInteger B { get { return _B; } }
         public string Bstr { get { return _Bstr; } }
         public BigInteger b { get { return _b; } }
+
+        /// <summary>The group this exchange is running in.</summary>
+        public SrpGroup Group { get { return _group; } }
         private BigInteger S;
         public string M, M2;
 
@@ -60,12 +64,24 @@ namespace KeePassRPC
             }
         }
 
-        public SRP()
+        /// <summary>Upstream's group, which is what an unmodified client still gets.</summary>
+        public SRP() : this(SrpGroup.Legacy512)
         {
-            _Nstr = "d4c7f8a2b32c11b8fba9581ec4ba4f1b04215642ef7355e37c0fc0443ef756ea2c6b8eeb755a1c723027663caa265ef785b8ff6a9b35227a52d86633dbdfca43";
+        }
+
+        /// <summary>
+        /// An exchange in <paramref name="group"/>. Which group is settled before any value
+        /// is computed and cannot change afterwards: every quantity in the protocol is
+        /// relative to N.
+        /// </summary>
+        public SRP(SrpGroup group)
+        {
+            _group = group;
+            _Nstr = group.NHex;
             _N = new BigInteger(_Nstr, 16);
-            _g = new BigInteger(2);
-            _k = new BigInteger("b7867f1299da8cc24ab93e08986ebc4d6a478ad0", 16);
+            _g = new BigInteger(group.G);
+            _gHex = _g.ToString(16);
+            _k = new BigInteger(group.KHex, 16);
         }
 
         internal void CalculatePasswordHash(string password)

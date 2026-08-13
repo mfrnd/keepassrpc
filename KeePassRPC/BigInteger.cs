@@ -139,7 +139,23 @@ namespace KeePassRPC
         // maximum length of the BigInteger in uint (4 bytes)
         // change this to suit the required level of precision.
 
-        private const int maxLength = 70;
+        // Raised from 70 to accommodate the 2048-bit SRP group; see SrpGroup. 70 words is
+        // 2240 bits, which is ample for a 512-bit modulus and nowhere near enough for a
+        // 2048-bit one. Three places set the requirement, and the largest is not the
+        // obvious one:
+        //
+        //   modPow builds `constant` with a bit set at word 2k, so a 64-word modulus needs
+        //   index 128 to exist at all;
+        //   a product of two values below N is 2k = 128 words;
+        //   and inside BarrettReduction, q2 = q1 * constant reaches (k+1) + (k+1) = 130.
+        //
+        // 140 clears all three with room to spare. Getting it wrong is not silent: the
+        // multiply throws ArithmeticException("Multiplication overflow.") and an index
+        // past the array throws, so a short value fails a pairing rather than producing a
+        // wrong key. The cost is that every BigInteger allocates 560 bytes instead of 280;
+        // the arithmetic loops are driven by dataLength rather than maxLength, so the
+        // 512-bit path does the same work it always did.
+        private const int maxLength = 140;
 
         // primes smaller than 2000 to test the generated prime number
 
