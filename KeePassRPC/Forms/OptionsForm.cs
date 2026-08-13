@@ -17,6 +17,7 @@ namespace KeePassRPC.Forms
     {
         private IPluginHost _host;
         private KeePassRPCExt _plugin;
+        private ClientAccessTable _clientAccess;
 
         public OptionsForm(IPluginHost host, KeePassRPCExt plugin)
         {
@@ -65,7 +66,31 @@ namespace KeePassRPC.Forms
             label6.Text = "Listen for connections on this TCP/IP port.";
             textBoxPort.Text = _host.CustomConfig.GetLong("KeePassRPC.webSocket.port", 12546).ToString();
 
+            // The fork's own columns are added to upstream's client table before it is
+            // filled, so that the fill can decorate the rows it creates.
+            _clientAccess = new ClientAccessTable(_plugin, dataGridView1, tabPage3);
             UpdateAuthorisedConnections();
+        }
+
+        /// <summary>
+        /// Lay the client tab out once its geometry has settled.
+        ///
+        /// Not in the constructor: the form has not been laid out or scaled at that point,
+        /// and bounds set there are simply overwritten.
+        /// </summary>
+        protected override void OnLoad(EventArgs e)
+        {
+            base.OnLoad(e);
+
+            // Wider than upstream drew it, because the client table now carries five columns
+            // and two of them hold things with no natural length: a client's name and the
+            // identity it paired under. Done here rather than in the designer so that the
+            // number stays next to the reason, and after base.OnLoad so that it is applied to
+            // a form that has already been scaled for this display.
+            DialogGrowth.Widen(this, (int)Math.Round(ClientSize.Width * 0.3));
+
+            if (_clientAccess != null)
+                _clientAccess.LayOut(tabPage3);
         }
 
         private void UpdateAuthorisedConnections()
@@ -94,9 +119,18 @@ namespace KeePassRPC.Forms
                 if (connectedClientUsernames.Contains(kc.Username))
                     connected = true;
 
+                if (_clientAccess != null && _clientAccess.IsForgotten(kc.Username))
+                    continue;
+
                 string[] row = { kc.ClientName, kc.Username, kc.AuthExpires.ToString() };
                 int rowid = dataGridView1.Rows.Add(row);
                 dataGridView1.Rows[rowid].Cells[3].Value = connected;
+
+                if (_clientAccess != null)
+                {
+                    _clientAccess.Decorate(dataGridView1.Rows[rowid], kc.Username,
+                        kc.ClientName, connected);
+                }
 
                 bool compromised = kc.Key == "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9";
                 if (compromised) {
@@ -265,6 +299,11 @@ See https://forum.kee.pm/t/3143/ for more information.",
                 default: secLevelClientMin = 3; break;
             }
 
+            // Persisted here rather than as the user clicks, so that Cancel means what it says
+            // for access control as much as for everything else in this dialog.
+            if (_clientAccess != null)
+                _clientAccess.Save();
+
             _host.CustomConfig.SetBool("KeePassRPC.KeeFox.autoCommit", checkBox1.Checked);
             _host.CustomConfig.SetBool("KeePassRPC.KeeFox.editNewEntries", checkBox2.Checked);
             _host.CustomConfig.SetBool("KeePassRPC.KeeFox.backupNewPasswords", checkBox3.Checked);
@@ -315,26 +354,10 @@ See https://forum.kee.pm/t/3143/ for more information.",
 
         private void dataGridView1_CellContentClick(object sender, DataGridViewCellEventArgs e)
         {
-            if (e.ColumnIndex == 4)
-            {
-                string username = (string)dataGridView1.Rows[e.RowIndex].Cells[1].Value;
-
-                // Revoke authorisation by deleting stored key data
-                _host.CustomConfig.SetString("KeePassRPC.Key." + username, null);
-
-                // If this connection is active, destroy it now
-                foreach (KeePassRPCClientConnection client in _plugin.GetConnectedRPCClients())
-                    if (!string.IsNullOrEmpty(client.UserName) && client.UserName == username)
-                    {
-                        client.WebSocketConnection.Close();
-                        break;
-                    }
-
-                // Refresh the view
-                dataGridView1.Rows.RemoveAt(e.RowIndex);
-                dataGridView1.Refresh();
-                //UpdateAuthorisedConnections();
-            }
+            // Revoking is the fork's business now, because it has more to clear than the key
+            // and it waits for this dialog to be accepted. See ClientAccessTable.
+            if (_clientAccess != null)
+                _clientAccess.HandledForgetClick(e.ColumnIndex, e.RowIndex);
         }
 
     }
