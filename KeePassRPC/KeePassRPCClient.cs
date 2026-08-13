@@ -66,7 +66,11 @@ namespace KeePassRPC
             "KPRPC_SECURITY_FIX_20200729",
 
             // Can send new DTO format
-            "KPRPC_FEATURE_DTO_V2"
+            "KPRPC_FEATURE_DTO_V2",
+
+            // Pairing can run in the 2048-bit RFC 5054 group instead of upstream's 512-bit
+            // one. Offered to everyone, used only by clients that declare it; see SrpGroup.
+            SrpGroup.StrongGroupFeatureName
 
             // in the rare event that we want to check for the absense of a feature
             // we would add a feature flag along the lines of "KPRPC_FEATURE_REMOVED_INCOMPATIBLE_THING_X"
@@ -580,6 +584,13 @@ See https://forum.kee.pm/t/3143/ for more information.",
             data2client.srp.stage = "identifyToClient";
             data2client.version = ProtocolVersion;
             data2client.features = featuresOffered;
+
+            // Settle the group before computing anything in it. The client has already
+            // calculated its public value A in whichever group its own features asked for,
+            // and every quantity from here on is relative to N, so this cannot be deferred
+            // and cannot change later. Replaces the instance built in the constructor,
+            // which predates knowing anything about the client.
+            _srp = new SRP(SrpGroup.ForFeatures(_clientFeatures));
 
             // Generate a new random password
             // SRP isn't very susceptible to brute force attacks but we get 32 bits worth of randomness just in case
