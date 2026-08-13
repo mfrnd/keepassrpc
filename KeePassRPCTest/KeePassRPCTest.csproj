@@ -45,6 +45,8 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AclScopeTest.cs" />
+    <Compile Include="AclTest.cs" />
     <Compile Include="AuditTest.cs" />
     <Compile Include="EntryConfigConvert.cs" />
     <Compile Include="EntryConfigRoundtrip.cs" />
@@ -53,6 +55,9 @@
     <Compile Include="RemoteAccessTest.cs" />
     <Compile Include="SrpExchange.cs" />
     <Compile Include="SrpGroupTest.cs" />
+    <Compile Include="AclDefaultTest.cs" />
+    <Compile Include="AclProfilesTest.cs" />
+    <Compile Include="AclVerbViewTest.cs" />
     <Compile Include="URLMatchTest.cs" />
     <Compile Include="URLSummaryTest.cs" />
   </ItemGroup>
