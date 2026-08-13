@@ -48,6 +48,7 @@
     <Compile Include="AclScopeTest.cs" />
     <Compile Include="AclTest.cs" />
     <Compile Include="AuditTest.cs" />
+    <Compile Include="DialogCustomDataTest.cs" />
     <Compile Include="EntryConfigConvert.cs" />
     <Compile Include="EntryConfigRoundtrip.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -56,9 +57,17 @@
     <Compile Include="RemoteAccessTest.cs" />
     <Compile Include="SrpExchange.cs" />
     <Compile Include="SrpGroupTest.cs" />
+    <Compile Include="AclCancelTest.cs" />
     <Compile Include="AclDefaultTest.cs" />
     <Compile Include="AclProfilesTest.cs" />
     <Compile Include="AclVerbViewTest.cs" />
+    <Compile Include="AclGridEditingTest.cs" />
+    <Compile Include="AclNoSpuriousWriteTest.cs" />
+    <Compile Include="AclInheritanceDisplayTest.cs" />
+    <Compile Include="AclUserControlLayoutTest.cs" />
+    <Compile Include="AclTabNestingTest.cs" />
+    <Compile Include="SubjectForgetTest.cs" />
+    <Compile Include="SubjectRegistryTest.cs" />
     <Compile Include="URLMatchTest.cs" />
     <Compile Include="URLSummaryTest.cs" />
   </ItemGroup>
