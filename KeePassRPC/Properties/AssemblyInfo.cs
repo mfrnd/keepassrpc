@@ -19,8 +19,8 @@ using System.Runtime.InteropServices;
 [assembly: Guid("89631AAE-8DE6-4593-8DAB-AB28490A490A")]
 
 // Assembly version information
-[assembly: AssemblyVersion("2.0.2.0")]
-[assembly: AssemblyFileVersion("2.0.2.0")] // also change AssemblyVersion and PluginVersion in KeePassRPCExt.cs!
+[assembly: AssemblyVersion("3.0.0.0")]
+[assembly: AssemblyFileVersion("3.0.0.0")] // also change AssemblyVersion and PluginVersion in KeePassRPCExt.cs!
 
 // The SRP exchange and the hashing it is built on are internal, and the tests that check
 // the 2048-bit group has to run a full exchange to be worth anything. Widening the
