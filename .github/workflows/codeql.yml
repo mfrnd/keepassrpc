@@ -14,14 +14,16 @@
 name: codeql
 
 on:
-  # master to keep the baseline the pull request gate compares against current, and pull
-  # requests to gate them. Not `feature/**` on push: a branch with a pull request open
-  # would then be analysed twice for every commit, and the analysis it is judged on is
-  # the pull request one.
+  # Push on master only, to keep the baseline the pull request gate compares against
+  # current. Not `feature/**`: a branch with a pull request open would be analysed twice
+  # for every commit, and the analysis it is judged on is the pull request one.
   push:
     branches: [master]
+  # Pull requests against ANY base, not just master. Work here lands as stacked branches,
+  # so a pull request's base is routinely another feature branch, and restricting this to
+  # master let every one of those merge without the gate ever running. Found the honest
+  # way: the branch that bumped these action versions got no CodeQL run at all.
   pull_request:
-    branches: [master]
   schedule:
     # Weekly, so newly published queries reach existing code rather than only new commits.
     - cron: '17 4 * * 1'
