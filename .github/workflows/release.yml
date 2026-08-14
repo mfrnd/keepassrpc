@@ -1,11 +1,10 @@
 # Builds the .plgx and publishes it as a release asset when a v* tag is pushed.
 #
-# The Python CI deliberately does not build the C# plugin because a hosted runner
-# has no KeePass.exe to reference. A release is the one place that cost is worth
-# paying: the plugin references KeePass through $(USERPROFILE)\KeePassDEV\KeePass.exe
-# and invokes that same exe for --plgx-create, so this job provisions a portable
-# KeePass into that directory before it builds. It also lays down the .NET
-# Framework 4.5 targeting pack, which the project targets and a bare runner lacks.
+# The plugin references KeePass through $(USERPROFILE)\KeePassDEV\KeePass.exe and drives
+# that same exe for --plgx-create, so the build needs a KeePass provisioned on the runner.
+# The `setup-keepass-build` composite action does that and lays down the .NET Framework
+# 4.5 targeting pack; the CodeQL C# analysis uses the same action, so the recipe has one
+# home rather than two copies that drift.
 #
 # The .plgx is a source package that KeePass recompiles on load, so a green build
 # here is necessary but not sufficient: the packaged file list has to be complete
@@ -28,37 +27,11 @@ jobs:
   build:
     runs-on: windows-latest
 
-    env:
-      # The version of the portable KeePass the plugin builds against. It only has
-      # to be at least the --plgx-prereq-kp floor the post-build stamps in (2.48);
-      # a newer one packages an older-floored plugin without complaint.
-      KEEPASS_VERSION: '2.57'
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Provision KeePass into KeePassDEV
-        shell: pwsh
-        run: |
-          $dev = Join-Path $env:USERPROFILE 'KeePassDEV'
-          New-Item -ItemType Directory -Force -Path $dev | Out-Null
-          $zip = Join-Path $env:RUNNER_TEMP 'keepass.zip'
-          $url = "https://downloads.sourceforge.net/project/keepass/KeePass%202.x/$env:KEEPASS_VERSION/KeePass-$env:KEEPASS_VERSION.zip"
-          Write-Host "Downloading $url"
-          Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
-          Expand-Archive -Path $zip -DestinationPath $dev -Force
-          if (-not (Test-Path (Join-Path $dev 'KeePass.exe'))) {
-            throw "KeePass.exe not found under $dev after extraction"
-          }
-
-      - name: Install the .NET Framework 4.5 targeting pack
-        # The 4.5.2 developer pack carries the 4.5, 4.5.1 and 4.5.2 reference
-        # assemblies, so it satisfies a project that targets v4.5 exactly.
-        shell: pwsh
-        run: choco install netfx-4.5.2-devpack -y --no-progress
-
-      - name: Set up MSBuild
-        uses: microsoft/setup-msbuild@v2
+      - name: Set up the plugin build
+        uses: ./.github/actions/setup-keepass-build
 
       - name: Build the .plgx
         shell: pwsh
