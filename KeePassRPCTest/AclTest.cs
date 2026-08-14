@@ -507,8 +507,8 @@ namespace KeePassRPCTest
         [Test]
         public void RejectsATruncatedFile()
         {
-            Assert.AreEqual(KdbxFormat.Unknown,
-                KdbxFormat.ReadMajorVersion(new MemoryStream(Encoding.ASCII.GetBytes("short"))));
+            using (MemoryStream truncated = new MemoryStream(Encoding.ASCII.GetBytes("short")))
+                Assert.AreEqual(KdbxFormat.Unknown, KdbxFormat.ReadMajorVersion(truncated));
         }
 
         [Test]

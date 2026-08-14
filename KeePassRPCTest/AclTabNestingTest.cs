@@ -24,9 +24,11 @@ namespace KeePassRPCTest
     [TestFixture]
     public class AclTabNestingTest
     {
-        private static TabPage Attach(Control keeContent)
+        // The outer strip is passed in rather than made here, because it owns the page this
+        // returns: disposing it inside would hand the caller a disposed page, and not
+        // disposing it at all leaks a control per test.
+        private static TabPage Attach(TabControl outer, Control keeContent)
         {
-            TabControl outer = new TabControl();
             TabPage keeTabPage = new TabPage("Kee");
             keeContent.Dock = DockStyle.Fill;
             keeTabPage.Controls.Add(keeContent);
@@ -65,17 +67,20 @@ namespace KeePassRPCTest
         [Apartment(ApartmentState.STA)]
         public void AnExistingInnerStripGainsAPage()
         {
-            UserControl keeContent = new UserControl();
-            TabControl existing = new TabControl();
-            existing.TabPages.Add(new TabPage("General"));
-            existing.TabPages.Add(new TabPage("URLs"));
-            keeContent.Controls.Add(existing);
+            using (TabControl outer = new TabControl())
+            {
+                UserControl keeContent = new UserControl();
+                TabControl existing = new TabControl();
+                existing.TabPages.Add(new TabPage("General"));
+                existing.TabPages.Add(new TabPage("URLs"));
+                keeContent.Controls.Add(existing);
 
-            TabPage keeTabPage = Attach(keeContent);
+                TabPage keeTabPage = Attach(outer, keeContent);
 
-            Assert.AreSame(existing, InnerOf(keeTabPage), "a second strip was created");
-            Assert.AreEqual(3, existing.TabPages.Count);
-            Assert.AreEqual("Access control", existing.TabPages[existing.TabPages.Count - 1].Text);
+                Assert.AreSame(existing, InnerOf(keeTabPage), "a second strip was created");
+                Assert.AreEqual(3, existing.TabPages.Count);
+                Assert.AreEqual("Access control", existing.TabPages[existing.TabPages.Count - 1].Text);
+            }
         }
 
         /// <summary>The group shape: no strip, so one is made without losing anything.</summary>
@@ -83,35 +88,41 @@ namespace KeePassRPCTest
         [Apartment(ApartmentState.STA)]
         public void AFlatKeeTabIsGivenAStripAndKeepsItsContent()
         {
-            UserControl keeContent = new UserControl();
-            Button ownedByUpstream = new Button();
-            keeContent.Controls.Add(ownedByUpstream);
+            using (TabControl outer = new TabControl())
+            {
+                UserControl keeContent = new UserControl();
+                Button ownedByUpstream = new Button();
+                keeContent.Controls.Add(ownedByUpstream);
 
-            TabPage keeTabPage = Attach(keeContent);
+                TabPage keeTabPage = Attach(outer, keeContent);
 
-            TabControl created = InnerOf(keeTabPage);
-            Assert.IsNotNull(created, "no strip was created");
-            Assert.AreEqual(2, created.TabPages.Count);
-            Assert.AreEqual("General", created.TabPages[0].Text);
-            Assert.AreEqual("Access control", created.TabPages[1].Text);
+                TabControl created = InnerOf(keeTabPage);
+                Assert.IsNotNull(created, "no strip was created");
+                Assert.AreEqual(2, created.TabPages.Count);
+                Assert.AreEqual("General", created.TabPages[0].Text);
+                Assert.AreEqual("Access control", created.TabPages[1].Text);
 
-            // The group's own settings have to end up on the first page, not be dropped or
-            // left underneath the strip where nothing can reach them.
-            Assert.AreSame(keeContent, created.TabPages[0].Controls[0]);
-            Assert.AreSame(ownedByUpstream, keeContent.Controls[0]);
+                // The group's own settings have to end up on the first page, not be dropped or
+                // left underneath the strip where nothing can reach them.
+                Assert.AreSame(keeContent, created.TabPages[0].Controls[0]);
+                Assert.AreSame(ownedByUpstream, keeContent.Controls[0]);
+            }
         }
 
         [Test]
         [Apartment(ApartmentState.STA)]
         public void TheEditorIsOnTheAclPageAndNowhereElse()
         {
-            UserControl keeContent = new UserControl();
-            TabPage keeTabPage = Attach(keeContent);
-            TabControl inner = InnerOf(keeTabPage);
+            using (TabControl outer = new TabControl())
+            {
+                UserControl keeContent = new UserControl();
+                TabPage keeTabPage = Attach(outer, keeContent);
+                TabControl inner = InnerOf(keeTabPage);
 
-            TabPage acl = inner.TabPages[inner.TabPages.Count - 1];
-            Assert.AreEqual(1, acl.Controls.Count);
-            Assert.IsInstanceOf<AclUserControl>(acl.Controls[0]);
+                TabPage acl = inner.TabPages[inner.TabPages.Count - 1];
+                Assert.AreEqual(1, acl.Controls.Count);
+                Assert.IsInstanceOf<AclUserControl>(acl.Controls[0]);
+            }
         }
 
         [Test]
@@ -122,15 +133,21 @@ namespace KeePassRPCTest
             // take the dialog with it.
             Assert.DoesNotThrow(delegate
             {
-                AclUserControl.AttachTo(null, new TabControl(), new StringDictionaryEx(),
-                    "scope", "the longer explanation", null,
-                    new List<string>(), new List<string>());
-                AclUserControl.AttachTo(new TabPage(), null, new StringDictionaryEx(),
-                    "scope", "the longer explanation", null,
-                    new List<string>(), new List<string>());
-                AclUserControl.AttachTo(new TabPage(), new TabControl(), null,
-                    "scope", "the longer explanation", null,
-                    new List<string>(), new List<string>());
+                using (TabControl noPage = new TabControl())
+                    AclUserControl.AttachTo(null, noPage, new StringDictionaryEx(),
+                        "scope", "the longer explanation", null,
+                        new List<string>(), new List<string>());
+
+                using (TabPage noStrip = new TabPage())
+                    AclUserControl.AttachTo(noStrip, null, new StringDictionaryEx(),
+                        "scope", "the longer explanation", null,
+                        new List<string>(), new List<string>());
+
+                using (TabPage page = new TabPage())
+                using (TabControl strip = new TabControl())
+                    AclUserControl.AttachTo(page, strip, null,
+                        "scope", "the longer explanation", null,
+                        new List<string>(), new List<string>());
             });
         }
     }
