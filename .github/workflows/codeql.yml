@@ -50,14 +50,14 @@ jobs:
             runner: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up the plugin build
         if: matrix.language == 'csharp'
         uses: ./.github/actions/setup-keepass-build
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
           # Query selection and the two exclusions live in the config file, not here.
@@ -79,6 +79,6 @@ jobs:
           msbuild KeeFox-KPRPC.sln /p:Configuration=Debug /p:UseSharedCompilation=false /v:minimal /nologo
 
       - name: Analyze
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: /language:${{ matrix.language }}

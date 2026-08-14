@@ -34,10 +34,12 @@ jobs:
         os: [ubuntu-latest, windows-latest]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        # Pinned to an exact version, unlike every other action here, because this one
+        # stopped publishing a floating major tag after v6: `@v10` does not resolve.
+        uses: astral-sh/setup-uv@v10.0.0
         with:
           enable-cache: true
           cache-dependency-glob: clients/python/uv.lock
