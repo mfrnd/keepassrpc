@@ -27,29 +27,29 @@ Built and verified against a live KeePass. 469 C# tests, 137 Python tests.
 | Remote connection handling, and two controls rejected | [`NETWORK-EXPOSURE.md`](NETWORK-EXPOSURE.md) |
 | What each control is worth, and what it is not | [`THREAT-MODEL.md`](THREAT-MODEL.md) |
 | Python protocol client | [`clients/python/README.md`](clients/python/README.md) |
+| CI, the scanning, and what a merge requires | [`CLAUDE.md`](CLAUDE.md) |
+| Packaging the `.plgx`, the release build and the Scoop bucket | [`CLAUDE.md`](CLAUDE.md) |
 
-## 1. After this build replaces the installed plugin
-
-The method gate is default deny, and the installed KeePass has paired clients with no
-`KeePassRPC.Profile.<subject>` entries. That used to be a prerequisite: without one of two keys set
-by hand, installing this build denied every one of them, including whatever resolves secrets over
-v1 today.
-
-It is a follow-up now. `LegacyClients.Migrate` runs once on the first start and gives every client
-already paired the access it had before, `legacy API, unrestricted`, so nothing breaks on the way
-in. What is left is the narrowing, which is the point of the exercise:
-
-- Work down the Authorised clients tab and give each one the narrowest setting it can do its job
-  with. A client that never needed the whole database should not keep it because a migration was
-  cautious.
-- A client paired from now on is asked at the moment it pairs, and is refused until answered.
-
-## 2. Consumers
+## 1. Consumers
 
 Nothing, here. A consumer declares `KPRPC_FEATURE_DTO_V3` and gains the V3 calls, and keeping up
 with this plugin is its own responsibility. This repository does not track or depend on any of
 them. What it owes them is the feature negotiation it already has, so that a client which declares
 nothing new keeps working.
+
+## 2. Cut the first release
+
+The packaging is built and the Scoop manifest is committed, but no release exists yet, so the
+manifest pins a placeholder digest and `scoop install` refuses the package until it is real. Three
+steps, in order:
+
+- Push a `v3.0.0` tag. The `release` workflow builds the `.plgx` and attaches it, printing the
+  asset's SHA256 in the release notes.
+- Put that digest in `bucket/keepass-plugin-keepassrpc-v3.json`, replacing the placeholder. It
+  cannot be computed ahead of time, because the `.plgx` header carries a build timestamp and the
+  digest therefore differs every build.
+- Install it from the bucket once, on a machine that is not the development one, since that is the
+  only thing that exercises the packaged file list end to end.
 
 ## 3. Optional, and none of it blocking
 
@@ -60,13 +60,15 @@ nothing new keeps working.
 ## Decided
 
 - **Fork structure and hosting**: resolved 2026-08-11. This repo IS the fork
-  (`mfrnd/keepassrpc`, forked from `kee-org/keepassrpc`), work happens on `feature/v3-api`, and
-  `upstream` exists as a remote with its push URL disabled.
+  (`mfrnd/keepassrpc`, forked from `kee-org/keepassrpc`), and `upstream` exists as a remote with
+  its push URL disabled. Work lands on `master` through pull requests, often stacked; the
+  `feature/v3-api` branch this line used to name was the single working branch before the history
+  was split into reviewable pieces, and no longer exists.
 - **Naming**: resolved 2026-08-11. Follow upstream throughout, internals included. There is no
   separate product name; this is V3 of KeePassRPC. An earlier working title has been removed.
 - **Where grants live**: resolved 2026-08-11, refined the same day. In their own `CustomData` key,
-  `KeePassRPC.ACL`, not in custom string fields and NOT as a property on upstream's config object --
-  an earlier version of this line said the latter and was wrong. Structural separation from the V3
+  `KeePassRPC.ACL`, not in custom string fields and NOT as a property on upstream's config object.
+  An earlier version of this line said the latter and was wrong. Structural separation from the V3
   field API beats a reserved-name filter.
 - **Pairing granularity**: resolved 2026-08-11. **One identity per agent.** Revocation and audit are
   only useful at the granularity you paired at.
@@ -75,8 +77,9 @@ nothing new keeps working.
 - **Grant TTL**: resolved 2026-08-11. **Keep the stock default**,
   `KeePassRPC.AuthorisationExpiryTime` = 31536000 seconds (one year). Nothing to build; per-subject
   values remain available if it ever needs tightening.
-- **Pushing**: resolved 2026-08-11. **Do not push until the author says otherwise.** Standing
-  instruction, not a pending question.
+- **Pushing**: resolved 2026-08-11, lifted 2026-08-13 once the history was split into reviewable
+  branches. The work is published. `master` is protected and takes changes through pull requests
+  that pass the checks in [`CLAUDE.md`](CLAUDE.md); the hold this line used to record is spent.
 
 ## Open questions for the author
 
