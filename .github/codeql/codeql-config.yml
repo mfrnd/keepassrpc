@@ -1,0 +1,26 @@
+# Shapes what CodeQL runs against this repository. Kept in one file so the analysis is
+# not defined half here and half in the workflow inputs.
+name: keepassrpc
+
+# security-and-quality rather than the default security-extended: the quality queries are
+# the ones that catch a leaked handle or a swallowed exception in a plugin that lives inside
+# the KeePass UI process, where a leak is the author's password manager slowing down.
+queries:
+  - uses: security-and-quality
+
+# Nothing is excluded by path. In particular the vendored sources stay in scope:
+# `BigInteger.cs` is the arithmetic underneath SRP, and `Jayrock/src` parses JSON-RPC
+# straight off the socket, so both are exactly where a finding would matter most. What
+# upstream already carries shows up as a baseline instead of being hidden, and the pull
+# request gate reports what a change adds on top of it.
+query-filters:
+  # Two ASP.NET configuration queries, excluded because this repository does not build a
+  # web application. They fire on `Jayrock/samples/AspNetDemo/Web.config`, a demo shipped
+  # inside the vendored JSON-RPC library that the solution never builds: only
+  # `Jayrock/src/Jayrock` and `Jayrock/src/Jayrock.Json` are projects in it. They were the
+  # only two error-severity alerts in the repository, so leaving them in would mean the
+  # error count never reaches zero and a real error never stands out.
+  - exclude:
+      id: cs/web/debug-binary
+  - exclude:
+      id: cs/web/missing-x-frame-options
