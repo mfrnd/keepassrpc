@@ -1,22 +1,23 @@
-# Code scanning for the Python client.
+# Code scanning for both languages in this repository: the Python client and the C# plugin.
 #
-# Python only, deliberately. CodeQL's C# analysis needs a working build, and this fork
-# builds against a KeePass.exe that only exists on a developer's workstation, so a csharp
-# job would fail for reasons that say nothing about the code. If the plugin build is ever
-# made self-contained, add csharp to the matrix then.
+# The C# job builds the plugin for real, because CodeQL's C# extractor observes a
+# compilation rather than reading source. That was the reason this workflow analysed
+# Python only until now: the plugin references a KeePass.exe that used to exist on a
+# developer's workstation and nowhere else. Provisioning it on a runner is a solved
+# problem since the release build needed the same thing, so both share one composite
+# action and csharp joins the matrix here.
+#
+# Deliberately not path-filtered. This is a required check, and a required check that
+# is filtered away never reports, which blocks the pull request it was meant to guard
+# instead of clearing it. Running the analysis on a docs-only change costs a few runner
+# minutes and avoids that deadlock entirely.
 name: codeql
 
 on:
   push:
     branches: [master, 'feature/**']
-    paths:
-      - 'clients/python/**'
-      - '.github/workflows/codeql.yml'
   pull_request:
     branches: [master]
-    paths:
-      - 'clients/python/**'
-      - '.github/workflows/codeql.yml'
   schedule:
     # Weekly, so newly published queries reach existing code rather than only new commits.
     - cron: '17 4 * * 1'
@@ -26,22 +27,54 @@ permissions:
 
 jobs:
   analyze:
-    runs-on: ubuntu-latest
+    name: analyze (${{ matrix.language }})
+    runs-on: ${{ matrix.runner }}
     permissions:
       security-events: write
       actions: read
       contents: read
 
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: python
+            runner: ubuntu-latest
+          - language: csharp
+            # Windows, because the plugin only builds there: the post-build drives
+            # KeePass.exe and the project targets .NET Framework.
+            runner: windows-latest
+
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up the plugin build
+        if: matrix.language == 'csharp'
+        uses: ./.github/actions/setup-keepass-build
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
-          languages: python
-          queries: security-and-quality
+          languages: ${{ matrix.language }}
+          # Query selection and the two exclusions live in the config file, not here.
+          config-file: ./.github/codeql/codeql-config.yml
+          # Python needs no build. For C# the build is spelled out below rather than
+          # left to autobuild, which would pick the solution and get the wrong
+          # configuration for this project.
+          build-mode: ${{ matrix.language == 'csharp' && 'manual' || 'none' }}
+
+      - name: Build the plugin
+        if: matrix.language == 'csharp'
+        shell: pwsh
+        # Debug, not Release: the post-build only handles Debug and ReleasePLGX and
+        # fails anything else. Debug is also the configuration the test suite uses.
+        # /p:UseSharedCompilation=false so the extractor sees each compilation instead
+        # of a persistent compiler server handling them out of process.
+        run: |
+          msbuild KeeFox-KPRPC.sln /t:Restore /p:RestorePackagesConfig=true /v:quiet /nologo
+          msbuild KeeFox-KPRPC.sln /p:Configuration=Debug /p:UseSharedCompilation=false /v:minimal /nologo
 
       - name: Analyze
         uses: github/codeql-action/analyze@v3
         with:
-          category: /language:python
+          category: /language:${{ matrix.language }}
