@@ -109,7 +109,16 @@ _PRIVATE_KEY_BYTES = 32
 
 
 def sha256_bytes(data: bytes) -> bytes:
-    """Hash raw bytes with SHA-256 (`Utils.Hash(byte[])`)."""
+    """Hash raw bytes with SHA-256 (`Utils.Hash(byte[])`).
+
+    The one-time authorisation code reaches this function, so CodeQL reads it as password
+    hashing and asks for a computationally expensive KDF. SRP-6a does not have that choice:
+    the verifier exponent is ``x = H(salt || H(user || ':' || pass))`` with a plain hash by
+    RFC 5054, and the peer computing the other half is KeePass's own implementation. A KDF
+    on this side alone produces a client that fails to authenticate. What limits the value
+    of the code is that it is single use and short lived, not the cost of hashing it.
+    """
+    # codeql[py/weak-sensitive-data-hashing]
     return hashlib.sha256(data).digest()
 
 

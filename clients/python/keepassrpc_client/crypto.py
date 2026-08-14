@@ -34,6 +34,12 @@ _BLOCK_BITS = 128
 
 def _mac(key: bytes, ciphertext: bytes, iv: bytes) -> bytes:
     """Compute the wire MAC: ``SHA1(SHA1(key) || ciphertext || iv)``."""
+    # SHA-1 here is upstream's wire format for the v1 envelope, not a choice this client
+    # gets to make. See the module docstring: a client that substitutes anything stronger
+    # cannot talk to KeePass at all. The replacement is negotiated rather than substituted,
+    # and it lives in `crypto_v2`, which this suppression deliberately does not cover.
+    # The annotation has to sit on the line directly above the alert to take effect.
+    # codeql[py/weak-sensitive-data-hashing]
     return hashlib.sha1(hashlib.sha1(key).digest() + ciphertext + iv).digest()
 
 
