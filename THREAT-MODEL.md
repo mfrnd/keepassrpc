@@ -330,6 +330,25 @@ Decisions, not oversights. Each could be revisited; none is being.
 8. **Entry history retains superseded values.** `CreateBackup` is what makes a bad write recoverable,
    and the same mechanism means a password that leaked is still in the file after being changed.
    Revoking a leaked credential means rotating it at the far end, not editing KeePass.
+9. **Two of the four shipped dependencies are prebuilt binaries with no source in this repository,
+   and nothing scans them.** `Fleck2.dll` (2.0.0.0) terminates the WebSocket connection, and
+   `DomainPublicSuffix.dll` (2.0.1.0) parses URLs; both are committed binaries, both are copied
+   into the `.plgx`, and both are therefore code this fork ships and cannot read. Fleck2 is the
+   worse of the two by position: it handles the handshake and the frame decoding, so it sees
+   attacker-controlled bytes before anything in this repository does, including the `Origin`
+   allowlist and the method gate.
+
+   Upstream chose these and the fork keeps them, because replacing either means rewriting the
+   socket layer, and a client that cannot connect is not a safer client. The other two are better
+   off: `Jayrock.dll` and `Jayrock.Json.dll` are also committed prebuilt, but their source is in
+   `Jayrock/src`, it builds to the same assembly version, and CodeQL analyses it, which is why no
+   path filter excludes it. The parser reachable from the socket is at least readable.
+
+   What this costs is specific and worth naming: for Fleck2 and DomainPublicSuffix there is no
+   version to watch, no advisory feed that names them, and no scan that would find a flaw in them,
+   so a vulnerability in either would arrive here silently. Dependabot covers the Python client and
+   the workflow actions; it has nothing to say about a committed DLL. Treat a WebSocket-layer flaw
+   as unmitigated rather than assume the controls in this document apply above it.
 
 ## Operational hazards
 
