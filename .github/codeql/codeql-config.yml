@@ -28,3 +28,18 @@ query-filters:
       id: cs/web/debug-binary
   - exclude:
       id: cs/web/missing-x-frame-options
+
+  # `...` as the body of a `typing.Protocol` method, which is the canonical way to declare
+  # one: removing it is a SyntaxError, and the member is a structural declaration that never
+  # runs as an implementation. The Python client has two such protocols, `KeyStore` and
+  # `Transport`, and every one of their methods raised this. They were dismissed one by one
+  # once; a rule that fires on correct and idiomatic code will simply do it again with the
+  # next protocol, and dismissals do not carry forward to new alerts.
+  #
+  # Excluded rather than worked around, because the defect it is meant to catch is already
+  # caught better here. `ruff` runs over the same code with bugbear selected, and flags a
+  # statement whose value is discarded as B015 or B018 while leaving stub bodies alone:
+  # checked against `x == 1` in a function, which ruff reports and this rule does not
+  # distinguish from an ellipsis. Nothing is lost by dropping the less precise of the two.
+  - exclude:
+      id: py/ineffectual-statement
