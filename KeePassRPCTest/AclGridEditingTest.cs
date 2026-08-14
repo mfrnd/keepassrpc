@@ -159,10 +159,13 @@ namespace KeePassRPCTest
             // Disposing the control clears the table, and clearing the table is how a row is
             // removed. Getting this wrong would wipe the grants of every dialog ever opened.
             StringDictionaryEx customData = new StringDictionaryEx();
-            AclUserControl editor = NewEditor(customData);
-            TypeRow(editor, "agent-fictitious", "read", false, false);
-            editor.Dispose();
+            using (AclUserControl editor = NewEditor(customData))
+            {
+                TypeRow(editor, "agent-fictitious", "read", false, false);
+            }
 
+            // Leaving the block is the disposal under test, and it happens even if typing the
+            // row throws, which is the whole reason for the block.
             Assert.IsTrue(customData.Exists(AclDocument.CustomDataKey),
                 "closing the dialog removed the grants");
         }
