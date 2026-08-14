@@ -15,11 +15,15 @@ queries:
 # request gate reports what a change adds on top of it.
 query-filters:
   # Two ASP.NET configuration queries, excluded because this repository does not build a
-  # web application. They fire on `Jayrock/samples/AspNetDemo/Web.config`, a demo shipped
-  # inside the vendored JSON-RPC library that the solution never builds: only
-  # `Jayrock/src/Jayrock` and `Jayrock/src/Jayrock.Json` are projects in it. They were the
-  # only two error-severity alerts in the repository, so leaving them in would mean the
-  # error count never reaches zero and a real error never stands out.
+  # web application. Both fire on one file, `Jayrock/samples/AspNetDemo/Web.config`: a demo
+  # shipped inside the vendored JSON-RPC library, which the solution never builds, since
+  # only `Jayrock/src/Jayrock` and `Jayrock/src/Jayrock.Json` are projects in it. An
+  # ASP.NET response header is not a control this repository can hold or get wrong.
+  #
+  # That is the whole of it. It is not a way of clearing the error-severity count, which
+  # these two do not account for: of them only `missing-x-frame-options` is an error, and
+  # a second error remains in `Jayrock/src/Jayrock.Json` after they are gone. That one is
+  # library code on the socket boundary, so it stays in scope and is reported.
   - exclude:
       id: cs/web/debug-binary
   - exclude:
