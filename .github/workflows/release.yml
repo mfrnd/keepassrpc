@@ -2,8 +2,8 @@
 #
 # The plugin references KeePass through $(USERPROFILE)\KeePassDEV\KeePass.exe and drives
 # that same exe for --plgx-create, so the build needs a KeePass provisioned on the runner.
-# The `setup-keepass-build` composite action does that and lays down the .NET Framework
-# 4.5 targeting pack; the CodeQL C# analysis uses the same action, so the recipe has one
+# The `setup-keepass-build` composite action does that and supplies the .NET Framework 4.5
+# reference assemblies; the CodeQL C# analysis uses the same action, so the recipe has one
 # home rather than two copies that drift.
 #
 # The .plgx is a source package that KeePass recompiles on load, so a green build

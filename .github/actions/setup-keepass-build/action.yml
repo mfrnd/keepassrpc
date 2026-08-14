@@ -6,7 +6,7 @@
 # analysis need exactly this, so the recipe lives in one place rather than drifting
 # between two workflows.
 name: Set up the KeePass plugin build
-description: Provisions a portable KeePass, the .NET Framework 4.5 targeting pack and MSBuild.
+description: Provisions a portable KeePass, the .NET Framework 4.5 reference assemblies and MSBuild.
 
 inputs:
   keepass-version:
@@ -60,11 +60,34 @@ runs:
         if (-not (Test-Path $exe)) { throw "KeePass.exe not found under $dev after extraction" }
         Write-Host "KeePass $((Get-Item $exe).VersionInfo.FileVersion) ready at $dev"
 
-    - name: Install the .NET Framework 4.5 targeting pack
-      # The 4.5.2 developer pack carries the 4.5, 4.5.1 and 4.5.2 reference assemblies,
-      # so it satisfies a project that targets v4.5 exactly.
+    - name: Provide the .NET Framework 4.5 reference assemblies
+      # Every project here targets v4.5 exactly, and a runner carries reference assemblies
+      # only for the frameworks its Visual Studio shipped with, so the build fails on
+      # MSB3644 without these. The developer pack installers are the documented answer and
+      # the wrong one: the 4.5.2 pack installs 4.5.2 reference assemblies, not 4.5, so it
+      # downloads 328MB and leaves the build failing exactly as before. This NuGet package
+      # carries `v4.5` itself, at a twentieth of the size and with no installer to run.
+      #
+      # MSBuild reads properties from the environment, so exporting the path here is enough
+      # for every later `msbuild` call without any of them naming it.
       shell: pwsh
-      run: choco install netfx-4.5.2-devpack -y --no-progress
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $ProgressPreference = 'SilentlyContinue'
+        $version = '1.0.3'
+        $pkg = Join-Path $env:RUNNER_TEMP 'refasm.zip'
+        $dest = Join-Path $env:RUNNER_TEMP 'refasm'
+        Invoke-WebRequest -UseBasicParsing -OutFile $pkg `
+          -Uri "https://www.nuget.org/api/v2/package/Microsoft.NETFramework.ReferenceAssemblies.net45/$version"
+        Expand-Archive -Path $pkg -DestinationPath $dest -Force
+
+        # A trailing separator matters: MSBuild joins this with `.NETFramework\v4.5`.
+        $root = (Join-Path $dest 'build') + [System.IO.Path]::DirectorySeparatorChar
+        if (-not (Test-Path (Join-Path $root '.NETFramework\v4.5\mscorlib.dll'))) {
+          throw "v4.5 reference assemblies missing under $root"
+        }
+        "TargetFrameworkRootPath=$root" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+        Write-Host "TargetFrameworkRootPath=$root"
 
     - name: Set up MSBuild
       uses: microsoft/setup-msbuild@v2
