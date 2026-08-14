@@ -13,9 +13,10 @@ inputs:
     description: >
       Version of the portable KeePass to build against. It only has to meet the
       --plgx-prereq-kp floor the post-build stamps in; a newer one packages an
-      older-floored plugin without complaint.
+      older-floored plugin without complaint. The default is the version the plugin
+      is developed and load-tested against.
     required: false
-    default: '2.57'
+    default: '2.61.1'
 
 runs:
   using: composite
@@ -23,18 +24,41 @@ runs:
     - name: Provision KeePass into KeePassDEV
       shell: pwsh
       run: |
+        $ErrorActionPreference = 'Stop'
+        $ProgressPreference = 'SilentlyContinue'
         $dev = Join-Path $env:USERPROFILE 'KeePassDEV'
         New-Item -ItemType Directory -Force -Path $dev | Out-Null
         $version = '${{ inputs.keepass-version }}'
         $zip = Join-Path $env:RUNNER_TEMP 'keepass.zip'
-        $url = "https://downloads.sourceforge.net/project/keepass/KeePass%202.x/$version/KeePass-$version.zip"
-        Write-Host "Downloading $url"
-        $ProgressPreference = 'SilentlyContinue'
-        Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
-        Expand-Archive -Path $zip -DestinationPath $dev -Force
-        if (-not (Test-Path (Join-Path $dev 'KeePass.exe'))) {
-          throw "KeePass.exe not found under $dev after extraction"
+        # use_mirror=autoselect, because without it SourceForge answers the plain download
+        # URL with its mirror-picker page: HTTP 200, an HTML body, and an unzip failure
+        # several steps later that reads like a corrupt archive rather than a wrong URL.
+        $url = "https://downloads.sourceforge.net/project/keepass/KeePass%202.x/$version/KeePass-$version.zip?use_mirror=autoselect"
+
+        $attempt = 0
+        while ($true) {
+          $attempt++
+          try {
+            Write-Host "Downloading KeePass $version (attempt $attempt)"
+            Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing -UserAgent 'Wget/1.21'
+            # Check the magic bytes rather than trusting the status code, so an interstitial
+            # or a mirror error page fails here with a clear reason.
+            $head = [System.IO.File]::ReadAllBytes($zip)[0..1]
+            if ([System.Text.Encoding]::ASCII.GetString($head) -ne 'PK') {
+              throw "downloaded file is not a zip (got $((Get-Item $zip).Length) bytes of something else)"
+            }
+            break
+          } catch {
+            if ($attempt -ge 3) { throw "KeePass $version download failed: $($_.Exception.Message)" }
+            Write-Host "  retrying: $($_.Exception.Message)"
+            Start-Sleep -Seconds (5 * $attempt)
+          }
         }
+
+        Expand-Archive -Path $zip -DestinationPath $dev -Force
+        $exe = Join-Path $dev 'KeePass.exe'
+        if (-not (Test-Path $exe)) { throw "KeePass.exe not found under $dev after extraction" }
+        Write-Host "KeePass $((Get-Item $exe).VersionInfo.FileVersion) ready at $dev"
 
     - name: Install the .NET Framework 4.5 targeting pack
       # The 4.5.2 developer pack carries the 4.5, 4.5.1 and 4.5.2 reference assemblies,

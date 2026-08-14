@@ -14,8 +14,12 @@
 name: codeql
 
 on:
+  # master to keep the baseline the pull request gate compares against current, and pull
+  # requests to gate them. Not `feature/**` on push: a branch with a pull request open
+  # would then be analysed twice for every commit, and the analysis it is judged on is
+  # the pull request one.
   push:
-    branches: [master, 'feature/**']
+    branches: [master]
   pull_request:
     branches: [master]
   schedule:
