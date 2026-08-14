@@ -169,6 +169,90 @@ Run the C# tests with the runner restored alongside NUnit:
 & packages\NUnit.ConsoleRunner.3.6.1\tools\nunit3-console.exe KeePassRPCTest\bin\Debug\KeePassRPCTest.dll --noresult
 ```
 
+## CI, and what a merge requires
+
+`master` is protected. A pull request merges when four checks pass, and they are required, so a
+check that does not report blocks the merge rather than being skipped:
+
+| check | workflow | what it does |
+| --- | --- | --- |
+| `analyze (python)` | `codeql` | CodeQL over `clients/python` |
+| `analyze (csharp)` | `codeql` | CodeQL over the plugin, which means building it |
+| `check (ubuntu-latest)` | `python-client` | ruff, mypy and pytest |
+| `check (windows-latest)` | `python-client` | the same, where the client actually runs |
+
+Admins can bypass, so the gate is a rail rather than a wall. Four things about it are worth knowing
+before touching a workflow:
+
+- **Neither workflow is path-filtered, deliberately.** A required check that is filtered away never
+  reports, and a pull request waiting on a check that will never run waits forever. Both workflows
+  ran into this. Do not add a `paths:` filter to either while its checks are required.
+- **`pull_request` names no base branch**, because work here stacks and a pull request's base is
+  routinely the branch below it. Restricting to `master` silently exempted every stacked pull
+  request from the gate.
+- **`push` is limited to `master`** on both, so the baseline stays current without analysing a
+  branch twice while its pull request is open.
+- **The C# analysis builds the plugin for real.** The `setup-keepass-build` composite action
+  provisions a portable KeePass into `KeePassDEV` and supplies the .NET Framework 4.5 reference
+  assemblies through `TargetFrameworkRootPath`. The developer pack the MSB3644 error message
+  recommends is the wrong answer: the 4.5.2 pack installs 4.5.2 reference assemblies, not 4.5.
+- **The job names are the required check names**, so renaming a job or a matrix entry renames the
+  check and leaves the branch waiting on one that no longer exists. That includes the `analyze`
+  job, whose American spelling matches `codeql-action/analyze` and is the one identifier here not
+  to correct: it is GitHub's name, and it is load-bearing. Changing any of them means updating the
+  protection rule in the same breath.
+
+### Handling a CodeQL alert
+
+**In-source suppression comments do nothing on GitHub.** `# codeql[rule-id]` is honoured by the
+CodeQL CLI when the suppression query runs alongside the analysis, and code scanning ignores it
+entirely: `suppressions` is not among the SARIF properties it consumes, and in-source suppression
+was closed as not planned upstream. Verified against live alerts, not assumed. So a comment is
+documentation for a human and nothing more.
+
+Dismiss through the API instead, with the reason that is actually true:
+
+```powershell
+gh api -X PATCH repos/mfrnd/keepassrpc/code-scanning/alerts/<n> `
+  -f state=dismissed -f dismissed_reason="won't fix" -f dismissed_comment="<why>"
+```
+
+`false positive` means the finding is wrong; `won't fix` means it is right and cannot be acted on,
+which is what the two pairing-crypto alerts are, since SRP-6a and upstream's wire format are not
+this repository's to change. Do not label the second kind as the first: the reason is the audit
+trail. A rule that will keep firing on correct code belongs in `query-filters` in
+`.github/codeql/codeql-config.yml` instead, because dismissals are per alert and do not carry
+forward to new ones.
+
+Expect a large inherited baseline on the C# side. Most of it is upstream's, at recommendation
+level, and the pull request gate is diff-informed, so a pull request is judged on the lines it
+changes rather than on what it inherited.
+
+## Releasing, and the Scoop bucket
+
+A `v*` tag makes the `release` workflow build the `.plgx` and attach it to the release, with the
+asset's SHA256 in the notes. `workflow_dispatch` builds the same package as a throwaway artifact
+without publishing, which is the way to exercise the build without cutting a release.
+
+`bucket/keepass-plugin-keepassrpc-v3.json` makes this repository a Scoop bucket. Its `hash` must be
+updated to the published asset's digest after each release: the `.plgx` header carries a build
+timestamp, so the digest differs every build and cannot be computed in advance. The package ships
+upstream's own `KeePassRPC.plgx` filename, so a user installs this fork or upstream's plugin and
+never both.
+
+The `.plgx` is a **source** package that KeePass recompiles on load, which has two consequences
+that are easy to get wrong:
+
+- **The file list in the `ReleasePLGX` post-build is hand-written, and a missing directory does not
+  fail the build.** It fails on the user's machine, at load, with unresolved types. `Acl\` and
+  `Models\DataExchange\V3\` were both missing for exactly that reason. Add a directory here when
+  you add one to the project.
+- **`LangVersion` is 5 because the compiler KeePass uses is the in-box CodeDOM provider, which
+  stops at C# 5.** Checked: C# 5 compiles, C# 6 string interpolation is rejected with "unexpected
+  character '$'". This is not a style preference and raising `TargetFrameworkVersion` does not
+  change it, because that governs the local build and not what KeePass compiles on a user's
+  machine.
+
 ## Reference clone
 
 Only one is still needed; upstream's source is this repo. Blobless clone into the gitignored
