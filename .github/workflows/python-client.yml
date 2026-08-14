@@ -1,19 +1,21 @@
-# CI for the Python client only. The C# plugin is deliberately not built here: it
-# references KeePass.exe from a developer's own KeePassDEV directory, which no hosted
-# runner has, and inventing a download step for it would be a change to how the fork
-# builds rather than a check on it.
+# CI for the Python client: lint, types and tests, on both platforms it runs on.
+# The C# plugin is not built here because `codeql` already builds it, provisions the
+# KeePass it references, and analyses the result.
 name: python-client
 
 on:
+  # Push on master only, so a branch with a pull request open is not checked twice for
+  # every commit. Pull requests against any base, because work here lands as stacked
+  # branches whose base is routinely another feature branch.
   push:
-    paths:
-      - 'clients/python/**'
-      - '.github/workflows/python-client.yml'
+    branches: [master]
   pull_request:
-    paths:
-      - 'clients/python/**'
-      - '.github/workflows/python-client.yml'
   workflow_dispatch:
+
+# No path filters. These checks are required for a merge, and a required check that is
+# filtered away never reports, which blocks the pull request it was meant to clear rather
+# than clearing it. A run on a change that touches nothing here costs about a minute and
+# removes that whole failure mode.
 
 permissions:
   contents: read
