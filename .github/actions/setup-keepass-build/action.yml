@@ -1,0 +1,46 @@
+# Everything a hosted Windows runner needs before it can build this plugin.
+#
+# The plugin references KeePass through $(USERPROFILE)\KeePassDEV\KeePass.exe and invokes
+# that same exe to package a .plgx, and it targets .NET Framework 4.5, whose reference
+# assemblies a bare runner does not carry. Both the release build and the CodeQL C#
+# analysis need exactly this, so the recipe lives in one place rather than drifting
+# between two workflows.
+name: Set up the KeePass plugin build
+description: Provisions a portable KeePass, the .NET Framework 4.5 targeting pack and MSBuild.
+
+inputs:
+  keepass-version:
+    description: >
+      Version of the portable KeePass to build against. It only has to meet the
+      --plgx-prereq-kp floor the post-build stamps in; a newer one packages an
+      older-floored plugin without complaint.
+    required: false
+    default: '2.57'
+
+runs:
+  using: composite
+  steps:
+    - name: Provision KeePass into KeePassDEV
+      shell: pwsh
+      run: |
+        $dev = Join-Path $env:USERPROFILE 'KeePassDEV'
+        New-Item -ItemType Directory -Force -Path $dev | Out-Null
+        $version = '${{ inputs.keepass-version }}'
+        $zip = Join-Path $env:RUNNER_TEMP 'keepass.zip'
+        $url = "https://downloads.sourceforge.net/project/keepass/KeePass%202.x/$version/KeePass-$version.zip"
+        Write-Host "Downloading $url"
+        $ProgressPreference = 'SilentlyContinue'
+        Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
+        Expand-Archive -Path $zip -DestinationPath $dev -Force
+        if (-not (Test-Path (Join-Path $dev 'KeePass.exe'))) {
+          throw "KeePass.exe not found under $dev after extraction"
+        }
+
+    - name: Install the .NET Framework 4.5 targeting pack
+      # The 4.5.2 developer pack carries the 4.5, 4.5.1 and 4.5.2 reference assemblies,
+      # so it satisfies a project that targets v4.5 exactly.
+      shell: pwsh
+      run: choco install netfx-4.5.2-devpack -y --no-progress
+
+    - name: Set up MSBuild
+      uses: microsoft/setup-msbuild@v2
